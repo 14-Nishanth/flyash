@@ -1,0 +1,252 @@
+<%- include('partials/header') %>
+
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-bold text-white tracking-tight">Materials & Inventory Dispatches</h1>
+    <p class="text-sm text-slate-400">Raw material receipts (Fly Ash, Cement) and finished products outward</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <button onclick="document.getElementById('inwardModal').classList.remove('hidden')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition shadow-lg shadow-indigo-600/20 flex items-center gap-2">
+      <i class="fa-solid fa-arrow-down"></i> Record Inward (Raw)
+    </button>
+    <button onclick="document.getElementById('outwardModal').classList.remove('hidden')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium transition shadow-lg shadow-emerald-600/20 flex items-center gap-2">
+      <i class="fa-solid fa-arrow-up"></i> Record Dispatch (Outward)
+    </button>
+  </div>
+</div>
+
+<!-- Tabs & Material Tables -->
+<div class="space-y-6">
+  <!-- Inward Receipts -->
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+    <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/40">
+      <h3 class="text-base font-semibold text-white flex items-center gap-2">
+        <i class="fa-solid fa-truck-ramp-box text-indigo-400"></i> Raw Material Inward Register
+      </h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm text-slate-300">
+        <thead class="text-xs uppercase bg-slate-800/80 text-slate-400 border-b border-slate-800">
+          <tr>
+            <th class="px-5 py-3">Date</th>
+            <th class="px-5 py-3">Supplier Party</th>
+            <th class="px-5 py-3">Material Type</th>
+            <th class="px-5 py-3">Quantity</th>
+            <th class="px-5 py-3">Vehicle No.</th>
+            <th class="px-5 py-3 text-right">Rate / Ton</th>
+            <th class="px-5 py-3 text-right">Total (₹)</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800/60">
+          <% inwards.forEach(function(item) { %>
+            <tr class="hover:bg-slate-800/40 transition">
+              <td class="px-5 py-3 text-xs text-slate-400"><%= item.date %></td>
+              <td class="px-5 py-3 font-medium text-white"><%= item.party_name || 'Unassigned Supplier' %></td>
+              <td class="px-5 py-3 text-xs">
+                <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"><%= item.material_type %></span>
+              </td>
+              <td class="px-5 py-3 font-mono text-xs"><%= item.quantity_mt %> <%= item.quantity_unit %></td>
+              <td class="px-5 py-3 text-xs text-slate-400 font-mono"><%= item.vehicle_no || '-' %></td>
+              <td class="px-5 py-3 text-right font-mono text-xs">₹<%= item.rate %></td>
+              <td class="px-5 py-3 text-right font-mono font-medium text-emerald-400">₹<%= item.amount.toLocaleString() %></td>
+            </tr>
+          <% }); %>
+          <% if (inwards.length === 0) { %>
+            <tr><td colspan="7" class="px-5 py-6 text-center text-slate-500">No inward records found</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Outward Dispatches -->
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+    <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/40">
+      <h3 class="text-base font-semibold text-white flex items-center gap-2">
+        <i class="fa-solid fa-truck-fast text-emerald-400"></i> Dispatch & Outward Register
+      </h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm text-slate-300">
+        <thead class="text-xs uppercase bg-slate-800/80 text-slate-400 border-b border-slate-800">
+          <tr>
+            <th class="px-5 py-3">Date</th>
+            <th class="px-5 py-3">Customer Party</th>
+            <th class="px-5 py-3">Item Dispatched</th>
+            <th class="px-5 py-3">Quantity</th>
+            <th class="px-5 py-3">Vehicle No.</th>
+            <th class="px-5 py-3 text-right">Unit Rate</th>
+            <th class="px-5 py-3 text-right">Total (₹)</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800/60">
+          <% outwards.forEach(function(item) { %>
+            <tr class="hover:bg-slate-800/40 transition">
+              <td class="px-5 py-3 text-xs text-slate-400"><%= item.date %></td>
+              <td class="px-5 py-3 font-medium text-white"><%= item.party_name || 'Walk-in Customer' %></td>
+              <td class="px-5 py-3 text-xs">
+                <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><%= item.material_type %></span>
+              </td>
+              <td class="px-5 py-3 font-mono text-xs"><%= item.quantity_mt %> <%= item.quantity_unit %></td>
+              <td class="px-5 py-3 text-xs text-slate-400 font-mono"><%= item.vehicle_no || '-' %></td>
+              <td class="px-5 py-3 text-right font-mono text-xs">₹<%= item.rate %></td>
+              <td class="px-5 py-3 text-right font-mono font-medium text-emerald-400">₹<%= item.amount.toLocaleString() %></td>
+            </tr>
+          <% }); %>
+          <% if (outwards.length === 0) { %>
+            <tr><td colspan="7" class="px-5 py-6 text-center text-slate-500">No dispatch records found</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Inward -->
+<div id="inwardModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+      <h3 class="text-lg font-bold text-white">Record Material Inward</h3>
+      <button onclick="document.getElementById('inwardModal').classList.add('hidden')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <form id="inwardForm" class="space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Date</label>
+          <input type="date" name="date" value="<%= new Date().toISOString().split('T')[0] %>" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Supplier Party</label>
+          <select name="party_id" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+            <% parties.forEach(function(p) { %>
+              <option value="<%= p.id %>"><%= p.name %> (<%= p.party_type %>)</option>
+            <% }); %>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Material</label>
+          <select name="material_type" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+            <option value="Fly Ash">Fly Ash</option>
+            <option value="Cement">Cement</option>
+            <option value="Quarry Dust">Quarry Dust</option>
+            <option value="Lime">Lime</option>
+            <option value="Gypsum">Gypsum</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Quantity (Tons / MT)</label>
+          <input type="number" step="any" name="quantity_mt" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Rate per Ton (₹)</label>
+          <input type="number" step="any" name="rate" value="0" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Vehicle No.</label>
+          <input type="text" name="vehicle_no" placeholder="TN 01 AB 1234" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Notes</label>
+        <input type="text" name="notes" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="document.getElementById('inwardModal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium">Cancel</button>
+        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium">Save Inward</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Outward -->
+<div id="outwardModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+      <h3 class="text-lg font-bold text-white">Record Material Outward / Dispatch</h3>
+      <button onclick="document.getElementById('outwardModal').classList.add('hidden')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <form id="outwardForm" class="space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Date</label>
+          <input type="date" name="date" value="<%= new Date().toISOString().split('T')[0] %>" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Customer Party</label>
+          <select name="party_id" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+            <option value="">Walk-in Customer</option>
+            <% parties.forEach(function(p) { %>
+              <option value="<%= p.id %>"><%= p.name %></option>
+            <% }); %>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Product</label>
+          <select name="material_type" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+            <option value="Fly Ash Brick 9x4x3">Fly Ash Brick 9x4x3</option>
+            <option value="Solid Block 4&quot;">Solid Block 4"</option>
+            <option value="Solid Block 6&quot;">Solid Block 6"</option>
+            <option value="Hollow Block 6&quot;">Hollow Block 6"</option>
+            <option value="Fly Ash">Fly Ash (Bulk Raw)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Quantity (Pieces)</label>
+          <input type="number" step="any" name="quantity_mt" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Rate per Unit (₹)</label>
+          <input type="number" step="any" name="rate" value="0" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Vehicle No.</label>
+          <input type="text" name="vehicle_no" placeholder="TN 01 AB 1234" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Notes</label>
+        <input type="text" name="notes" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="document.getElementById('outwardModal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium">Cancel</button>
+        <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium">Save Dispatch</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.getElementById('inwardForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+    const res = await fetch('/api/materials/inward', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) window.location.reload();
+  });
+
+  document.getElementById('outwardForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+    const res = await fetch('/api/materials/outward', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) window.location.reload();
+  });
+</script>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,148 @@
+<%- include('partials/header') %>
+
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-bold text-white tracking-tight">Employees & Daily Attendance</h1>
+    <p class="text-sm text-slate-400">Mark daily attendance and manage worker profiles</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <button onclick="document.getElementById('empModal').classList.remove('hidden')" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition shadow-lg shadow-blue-600/20 flex items-center gap-2">
+      <i class="fa-solid fa-user-plus"></i> Add Employee
+    </button>
+  </div>
+</div>
+
+<!-- Attendance Form for Selected Date -->
+<div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl p-5 space-y-4">
+  <div class="flex items-center justify-between">
+    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+      <i class="fa-solid fa-calendar-check text-teal-400"></i> Daily Attendance Register
+    </h3>
+    <div class="flex items-center gap-2">
+      <label class="text-xs text-slate-400">Date:</label>
+      <input type="date" id="attendanceDate" value="<%= today %>" onchange="window.location.href='/employees?date=' + this.value" class="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white">
+    </div>
+  </div>
+
+  <form id="attendanceForm" class="space-y-4">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm text-slate-300">
+        <thead class="text-xs uppercase bg-slate-800/60 text-slate-400">
+          <tr>
+            <th class="px-4 py-3">Employee</th>
+            <th class="px-4 py-3">Role</th>
+            <th class="px-4 py-3">Daily Wage (₹)</th>
+            <th class="px-4 py-3 text-center">Status</th>
+            <th class="px-4 py-3">Notes / Remarks</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800/60">
+          <% attendance.forEach(function(row, idx) { %>
+            <tr>
+              <td class="px-4 py-3 font-medium text-white">
+                <%= row.employee.name %>
+                <input type="hidden" name="employee_id_<%= idx %>" value="<%= row.employee.id %>">
+              </td>
+              <td class="px-4 py-3 text-xs text-slate-400"><%= row.employee.role || 'Laborer' %></td>
+              <td class="px-4 py-3 text-xs font-mono">₹<%= row.employee.daily_wage %></td>
+              <td class="px-4 py-3 text-center">
+                <div class="inline-flex rounded-lg border border-slate-700 p-0.5 bg-slate-800 text-xs">
+                  <label class="px-2.5 py-1 rounded cursor-pointer transition <%= row.status === 'present' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white' %>">
+                    <input type="radio" name="status_<%= idx %>" value="present" <%= row.status === 'present' ? 'checked' : '' %> class="hidden"> Present
+                  </label>
+                  <label class="px-2.5 py-1 rounded cursor-pointer transition <%= row.status === 'half-day' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white' %>">
+                    <input type="radio" name="status_<%= idx %>" value="half-day" <%= row.status === 'half-day' ? 'checked' : '' %> class="hidden"> Half-Day
+                  </label>
+                  <label class="px-2.5 py-1 rounded cursor-pointer transition <%= row.status === 'absent' ? 'bg-rose-600 text-white' : 'text-slate-400 hover:text-white' %>">
+                    <input type="radio" name="status_<%= idx %>" value="absent" <%= row.status === 'absent' ? 'checked' : '' %> class="hidden"> Absent
+                  </label>
+                </div>
+              </td>
+              <td class="px-4 py-3">
+                <input type="text" name="notes_<%= idx %>" value="<%= row.notes %>" placeholder="Optional remark" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white">
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <div class="flex justify-end">
+      <button type="submit" class="px-5 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-medium transition shadow-lg shadow-teal-600/20">
+        Save Today's Attendance
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Modal: Add Employee -->
+<div id="empModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+      <h3 class="text-lg font-bold text-white">Add New Employee</h3>
+      <button onclick="document.getElementById('empModal').classList.add('hidden')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <form id="empForm" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Employee Name *</label>
+        <input type="text" name="name" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Phone</label>
+          <input type="text" name="phone" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Role / Designation</label>
+          <input type="text" name="role" value="Production Labor" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Base Daily Wage (₹)</label>
+        <input type="number" step="any" name="daily_wage" value="0" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="document.getElementById('empModal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium">Cancel</button>
+        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium">Save Employee</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.getElementById('empForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+    const res = await fetch('/api/employees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) window.location.reload();
+  });
+
+  document.getElementById('attendanceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const date = document.getElementById('attendanceDate').value;
+    const count = <%= attendance.length %>;
+    const records = [];
+    for (let i = 0; i < count; i++) {
+      const empId = document.querySelector(`input[name="employee_id_${i}"]`).value;
+      const statusEl = document.querySelector(`input[name="status_${i}"]:checked`);
+      const notesEl = document.querySelector(`input[name="notes_${i}"]`);
+      records.push({
+        employee_id: Number(empId),
+        status: statusEl ? statusEl.value : 'present',
+        notes: notesEl ? notesEl.value : ''
+      });
+    }
+    const res = await fetch('/api/employees/attendance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, records })
+    });
+    if (res.ok) alert('Attendance saved successfully!');
+  });
+</script>
+
+<%- include('partials/footer') %>

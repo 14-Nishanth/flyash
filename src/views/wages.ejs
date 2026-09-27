@@ -1,0 +1,62 @@
+<%- include('partials/header') %>
+
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-bold text-white tracking-tight">Labor Wage & Salary Sheet</h1>
+    <p class="text-sm text-slate-400">Combined piece-rate job earnings and daily wage calculations</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <button onclick="window.print()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-sm font-medium transition flex items-center gap-1.5">
+      <i class="fa-solid fa-print"></i> Print Sheet
+    </button>
+  </div>
+</div>
+
+<!-- Wage Sheet Table -->
+<div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+  <div class="px-5 py-4 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-800/40">
+    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+      <i class="fa-solid fa-file-invoice-dollar text-green-400"></i> Worker Wage Statement
+    </h3>
+    <form class="flex items-center gap-2 text-xs">
+      <label class="text-slate-400">From:</label>
+      <input type="date" name="from" value="<%= from %>" class="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white">
+      <label class="text-slate-400">To:</label>
+      <input type="date" name="to" value="<%= to %>" class="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white">
+      <button type="submit" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium">Filter</button>
+    </form>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-left text-sm text-slate-300">
+      <thead class="text-xs uppercase bg-slate-800/80 text-slate-400 border-b border-slate-800">
+        <tr>
+          <th class="px-5 py-3.5">Employee Name</th>
+          <th class="px-5 py-3.5">Present Days</th>
+          <th class="px-5 py-3.5 text-right">Daily Wage Earned</th>
+          <th class="px-5 py-3.5 text-right">Piece-Rate Share</th>
+          <th class="px-5 py-3.5 text-right font-bold text-white">Total Gross Earned</th>
+          <th class="px-5 py-3.5 text-right text-rose-400">Paid / Disbursed</th>
+          <th class="px-5 py-3.5 text-right font-bold text-emerald-400">Net Payable</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800/60 font-mono text-xs">
+        <% wages.forEach(function(row) { %>
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="px-5 py-3.5 font-sans font-medium text-white text-sm">
+              <%= row.employee.name %>
+              <div class="text-[11px] text-slate-500 font-sans"><%= row.employee.role || 'Laborer' %></div>
+            </td>
+            <td class="px-5 py-3.5 text-slate-300"><%= row.presentDays %> days</td>
+            <td class="px-5 py-3.5 text-right text-slate-300">₹<%= row.dailyWageEarnings.toLocaleString() %></td>
+            <td class="px-5 py-3.5 text-right text-amber-400 font-bold">₹<%= row.pieceRateEarnings.toLocaleString() %></td>
+            <td class="px-5 py-3.5 text-right font-bold text-white text-sm">₹<%= row.totalEarned.toLocaleString() %></td>
+            <td class="px-5 py-3.5 text-right text-rose-400">₹<%= row.paidAmount.toLocaleString() %></td>
+            <td class="px-5 py-3.5 text-right font-bold text-emerald-400 text-sm">₹<%= row.netPayable.toLocaleString() %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
