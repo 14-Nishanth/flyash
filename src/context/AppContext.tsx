@@ -15,6 +15,7 @@ import {
   ProductRateMaster,
 } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
+import { trackFailedLoginAttempt, resetFailedLoginAttempts } from '../lib/notificationService';
 
 export interface UserSession {
   id?: string;
@@ -278,6 +279,29 @@ const DEFAULT_WORKER_GROUPS: WorkerGroup[] = [
   },
 ];
 
+const DEFAULT_SETTINGS: AlertSettings = {
+  owner_name: 'Plant Owner',
+  owner_phone: '',
+  owner_email: '',
+  owner_whatsapp: '',
+  alert_channel_email: false,
+  alert_channel_telegram: true,
+  alert_channel_whatsapp: true,
+  telegram_bot_token: '',
+  telegram_chat_id: '',
+  alert_wrong_password_enabled: true,
+  alert_wrong_password_threshold: 1,
+  alert_new_login_enabled: false,
+  alert_low_stock_enabled: true,
+  alert_low_stock_threshold_cement: 50,
+  alert_low_stock_threshold_flyash: 20,
+  alert_high_expense_enabled: true,
+  alert_high_expense_threshold: 10000,
+  max_alerts_per_day: 10,
+  daily_digest_enabled: true,
+  daily_digest_time: '19:00',
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Set Light theme as default
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('flyash_theme') as 'dark' | 'light') || 'light');
@@ -350,12 +374,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [settings, setSettings] = useState<AlertSettings>(() => {
     const saved = localStorage.getItem('flyash_settings');
-    return saved ? JSON.parse(saved) : {
-      owner_name: 'Plant Owner',
-      owner_phone: '',
-      daily_digest_enabled: true,
-      daily_digest_time: '19:00',
-    };
+    return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
   });
 
   // Role permissions: Only Admin or Owner can delete data or manage users
@@ -371,6 +390,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       (u) => u.username.toLowerCase() === cleanUser && u.password === cleanPass
     );
     if (foundUser) {
+      resetFailedLoginAttempts();
       const session: UserSession = {
         id: foundUser.id,
         username: foundUser.username,
@@ -384,18 +404,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (cleanUser === 'admin' && cleanPass === 'admin123') {
+      resetFailedLoginAttempts();
       const session: UserSession = { username: 'admin', name: 'Plant Administrator', role: 'admin' };
       setCurrentUser(session);
       localStorage.setItem('flyash_user_session', JSON.stringify(session));
       return { success: true };
     }
     if (cleanUser === 'owner' && cleanPass === 'owner123') {
+      resetFailedLoginAttempts();
       const session: UserSession = { username: 'owner', name: 'Plant Owner', role: 'owner' };
       setCurrentUser(session);
       localStorage.setItem('flyash_user_session', JSON.stringify(session));
       return { success: true };
     }
     if (cleanUser === 'operator' && cleanPass === 'operator123') {
+      resetFailedLoginAttempts();
       const session: UserSession = { username: 'operator', name: 'Data Entry Operator', role: 'operator' };
       setCurrentUser(session);
       localStorage.setItem('flyash_user_session', JSON.stringify(session));
@@ -410,6 +433,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           password: cleanPass,
         });
         if (data?.user && !error) {
+          resetFailedLoginAttempts();
           const session: UserSession = {
             username: data.user.email || cleanUser,
             name: data.user.user_metadata?.name || 'Plant Staff',
@@ -422,6 +446,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (err) {
         console.warn('Supabase auth error:', err);
       }
+    }
+
+    // Trigger security alert on failed login attempt
+    try {
+      await trackFailedLoginAttempt(settings, cleanUser);
+    } catch (e) {
+      console.warn('Failed login notification error:', e);
     }
 
     return { success: false, error: 'Invalid credentials. Please check your username and password.' };

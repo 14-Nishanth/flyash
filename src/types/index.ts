@@ -176,8 +176,37 @@ export interface AlertSettings {
   supabase_anon_key?: string;
   owner_name: string;
   owner_phone?: string;
+  owner_email?: string;
+  owner_whatsapp?: string;
+  
+  // Channels Enabled
+  alert_channel_email: boolean;
+  alert_channel_telegram: boolean;
+  alert_channel_whatsapp: boolean;
+  
+  // Telegram Bot Config
   telegram_bot_token?: string;
   telegram_chat_id?: string;
+  
+  // Email Config
+  email_service_id?: string;
+  email_template_id?: string;
+  email_public_key?: string;
+  
+  // Security / Wrong Password Alerts
+  alert_wrong_password_enabled: boolean;
+  alert_wrong_password_threshold: number; // e.g. 1, 2, or 3 attempts
+  alert_new_login_enabled: boolean;
+  
+  // Operational Alerts
+  alert_low_stock_enabled: boolean;
+  alert_low_stock_threshold_cement: number; // in bags or tons
+  alert_low_stock_threshold_flyash: number; // in tons
+  alert_high_expense_enabled: boolean;
+  alert_high_expense_threshold: number; // in ₹
+  
+  // Rate Limiting & Frequency
+  max_alerts_per_day: number; // e.g. 5, 10, 20, 0 = unlimited
   daily_digest_enabled: boolean;
   daily_digest_time: string;
 }
