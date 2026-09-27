@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from './context/AppContext';
+import { Login } from './components/Login';
 import { Navbar } from './components/Navbar';
 import { MobileNav } from './components/MobileNav';
 import { Dashboard } from './components/Dashboard';
@@ -12,10 +13,15 @@ import { Expenses } from './components/Expenses';
 import { Settings } from './components/Settings';
 
 export const App: React.FC = () => {
-  const { activeTab } = useApp();
+  const { currentUser, activeTab } = useApp();
+
+  // If user is not logged in, render the Login Screen
+  if (!currentUser) {
+    return <Login />;
+  }
 
   return (
-    <div className="min-h-screen flex flex-col pb-20 lg:pb-8">
+    <div className="min-h-screen flex flex-col pb-20 lg:pb-8 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       <Navbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">

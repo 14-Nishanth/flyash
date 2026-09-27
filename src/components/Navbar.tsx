@@ -13,12 +13,14 @@ import {
   Sun, 
   Moon,
   Cloud,
-  HardDrive
+  HardDrive,
+  LogOut,
+  UserCircle
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 
 export const Navbar: React.FC = () => {
-  const { activeTab, setActiveTab, theme, toggleTheme } = useApp();
+  const { activeTab, setActiveTab, theme, toggleTheme, currentUser, logout } = useApp();
   const isSupabaseConnected = !!getSupabaseClient();
 
   const navItems = [
@@ -78,7 +80,7 @@ export const Navbar: React.FC = () => {
             </nav>
           </div>
 
-          {/* Right Utilities: Supabase Status, Theme, Settings */}
+          {/* Right Utilities: Supabase Status, Theme, User, Settings, Logout */}
           <div className="flex items-center gap-2">
             {/* Supabase status pill */}
             <div 
@@ -114,6 +116,23 @@ export const Navbar: React.FC = () => {
             >
               <Sliders className="w-4 h-4" />
             </button>
+
+            {/* User Profile & Logout */}
+            {currentUser && (
+              <div className="flex items-center gap-1.5 pl-1.5 border-l border-slate-200 dark:border-slate-800">
+                <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <UserCircle className="w-4 h-4 text-blue-500" />
+                  <span>{currentUser.name}</span>
+                </div>
+                <button
+                  onClick={logout}
+                  className="p-2 bg-rose-500/10 hover:bg-rose-500 text-rose-600 dark:text-rose-400 hover:text-white rounded-xl text-xs font-semibold transition border border-rose-500/20"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -2,9 +2,18 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Party, MaterialInward, MaterialOutward, Payment, JobWageEntry, Employee, AttendanceRecord, Expense, AlertSettings } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 
+export interface UserSession {
+  username: string;
+  name: string;
+  role: 'owner' | 'manager' | 'operator';
+}
+
 interface AppContextType {
   theme: 'dark' | 'light';
   toggleTheme: () => void;
+  currentUser: UserSession | null;
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
   parties: Party[];
   inwards: MaterialInward[];
   outwards: MaterialOutward[];
@@ -36,12 +45,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('flyash_theme') as 'dark' | 'light') || 'dark');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
+  // Authentication Session
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(() => {
+    const saved = localStorage.getItem('flyash_user_session');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [parties, setParties] = useState<Party[]>(() => {
     const saved = localStorage.getItem('flyash_parties');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', name: 'Ram Construction', party_type: 'customer', phone: '9876543210', gstin: '33AAAAA0000A1Z5', opening_balance: 0, created_at: new Date().toISOString() },
-      { id: '2', name: 'NLC Flyash Supplier', party_type: 'supplier', phone: '9876500000', opening_balance: 0, created_at: new Date().toISOString() },
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [inwards, setInwards] = useState<MaterialInward[]>(() => {
@@ -69,7 +81,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [
       { id: '1', name: 'Muthu', role: 'Machine Operator', daily_wage: 700, joining_date: '2026-01-01', is_active: true },
       { id: '2', name: 'Kumar', role: 'Laborer', daily_wage: 500, joining_date: '2026-01-01', is_active: true },
-      { id: '3', name: 'Ravi', role: 'Laborer', daily_wage: 500, joining_date: '2026-01-01', is_active: true },
     ];
   });
 
@@ -92,6 +103,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       daily_digest_time: '19:00',
     };
   });
+
+  // Login handler
+  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const cleanUser = username.trim().toLowerCase();
+    const cleanPass = password.trim();
+
+    // 1. Default Master Credentials or Supabase Auth
+    if ((cleanUser === 'admin' && cleanPass === 'admin123') || (cleanUser === 'owner' && cleanPass === 'owner123')) {
+      const session: UserSession = {
+        username: cleanUser,
+        name: cleanUser === 'owner' ? 'Plant Owner' : 'Plant Administrator',
+        role: cleanUser === 'owner' ? 'owner' : 'manager',
+      };
+      setCurrentUser(session);
+      localStorage.setItem('flyash_user_session', JSON.stringify(session));
+      return { success: true };
+    }
+
+    // 2. Supabase Auth if email format
+    const supabase = getSupabaseClient();
+    if (supabase && cleanUser.includes('@')) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: cleanUser,
+          password: cleanPass,
+        });
+        if (data?.user && !error) {
+          const session: UserSession = {
+            username: data.user.email || cleanUser,
+            name: data.user.user_metadata?.name || 'Plant Staff',
+            role: 'manager',
+          };
+          setCurrentUser(session);
+          localStorage.setItem('flyash_user_session', JSON.stringify(session));
+          return { success: true };
+        }
+      } catch (err) {
+        console.warn('Supabase auth error:', err);
+      }
+    }
+
+    return { success: false, error: 'Invalid username or password. Default: admin / admin123' };
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('flyash_user_session');
+  };
 
   // Sync to local storage
   useEffect(() => {
@@ -136,7 +195,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Supabase Cloud Sync on mount if available
+  // Supabase Cloud Sync on mount
   useEffect(() => {
     const supabase = getSupabaseClient();
     if (!supabase) return;
@@ -370,6 +429,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         theme,
         toggleTheme,
+        currentUser,
+        login,
+        logout,
         parties,
         inwards,
         outwards,
