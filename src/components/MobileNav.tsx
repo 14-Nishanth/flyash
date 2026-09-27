@@ -1,12 +1,13 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, Truck, Hammer, Users, Banknote } from 'lucide-react';
+import { LayoutDashboard, Truck, Hammer, Users, Banknote, TrendingUp } from 'lucide-react';
 
 export const MobileNav: React.FC = () => {
   const { activeTab, setActiveTab } = useApp();
 
   const items = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'analytics', label: 'Turnover', icon: TrendingUp },
     { id: 'materials', label: 'Materials', icon: Truck },
     { id: 'production', label: 'Production', icon: Hammer },
     { id: 'parties', label: 'Parties', icon: Users },

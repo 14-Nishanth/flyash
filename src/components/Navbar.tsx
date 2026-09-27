@@ -16,7 +16,7 @@ import {
   HardDrive,
   LogOut,
   UserCircle,
-  ShieldCheck,
+  TrendingUp,
   Lock
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
@@ -27,6 +27,7 @@ export const Navbar: React.FC = () => {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-600' },
+    { id: 'analytics', label: 'Turnover & Analytics', icon: TrendingUp, color: 'text-blue-600' },
     { id: 'materials', label: 'Materials & Stock', icon: Truck, color: 'text-amber-600' },
     { id: 'parties', label: 'Parties & Ledger', icon: Users, color: 'text-indigo-600' },
     { id: 'production', label: 'Production', icon: Hammer, color: 'text-amber-600' },
