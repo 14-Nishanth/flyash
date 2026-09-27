@@ -1,22 +1,22 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const defaultUrl = import.meta.env.VITE_SUPABASE_URL || localStorage.getItem('flyash_supabase_url') || '';
-const defaultKey = import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('flyash_supabase_anon_key') || '';
+const FALLBACK_URL = 'https://laqpdlasfxearjtnnouu.supabase.co';
+const FALLBACK_KEY = 'sb_publishable_HWGUFlrfY9nBdv8dK9ZCVg_qYuiDsOw';
 
 let supabaseInstance: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient | null {
   if (supabaseInstance) return supabaseInstance;
 
-  const url = import.meta.env.VITE_SUPABASE_URL || localStorage.getItem('flyash_supabase_url');
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('flyash_supabase_anon_key');
+  const url = import.meta.env.VITE_SUPABASE_URL || localStorage.getItem('flyash_supabase_url') || FALLBACK_URL;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('flyash_supabase_anon_key') || FALLBACK_KEY;
 
   if (url && key) {
     try {
       supabaseInstance = createClient(url, key);
       return supabaseInstance;
     } catch (e) {
-      console.warn('Supabase initialization failed, falling back to local store', e);
+      console.warn('Supabase initialization error, operating in local cache mode:', e);
     }
   }
   return null;
