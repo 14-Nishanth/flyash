@@ -32,6 +32,7 @@ interface AppContextType {
   canManageUsers: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  changePassword: (newPassword: string) => Promise<{ success: boolean; message: string }>;
   users: AppUser[];
   addUser: (user: Omit<AppUser, 'id' | 'created_at'>) => Promise<void>;
   updateUser: (id: string, user: Partial<AppUser>) => Promise<void>;
@@ -726,6 +727,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
+  const changePassword = async (newPassword: string): Promise<{ success: boolean; message: string }> => {
+    if (!currentUser) return { success: false, message: 'No active user session' };
+    const cleanPass = newPassword.trim();
+    if (cleanPass.length < 4) {
+      return { success: false, message: 'Password must be at least 4 characters long' };
+    }
+
+    // Check if user exists in users array
+    const existingIndex = users.findIndex(
+      (u) => u.username.toLowerCase() === currentUser.username.toLowerCase()
+    );
+
+    if (existingIndex >= 0) {
+      const targetUser = users[existingIndex];
+      const updatedUser = { ...targetUser, password: cleanPass };
+      setUsers((prev) => prev.map((u) => (u.id === targetUser.id ? updatedUser : u)));
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('app_users').update({ password: cleanPass }).eq('id', targetUser.id);
+        } catch (e) {
+          console.warn('Supabase password sync:', e);
+        }
+      }
+    } else {
+      // Create new user entry for this login
+      const newUser: AppUser = {
+        id: currentUser.id || String(Date.now()),
+        username: currentUser.username,
+        name: currentUser.name,
+        role: currentUser.role,
+        phone: currentUser.phone,
+        password: cleanPass,
+        created_at: new Date().toISOString(),
+      };
+      setUsers((prev) => [...prev, newUser]);
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('app_users').insert(newUser);
+        } catch (e) {
+          console.warn('Supabase password sync:', e);
+        }
+      }
+    }
+
+    return { success: true, message: 'Password updated successfully!' };
+  };
+
   // --- WORKER GROUPS CRUD ---
   const addGroup = async (group: Omit<WorkerGroup, 'id' | 'created_at'>) => {
     const newGroup: WorkerGroup = {
@@ -1124,6 +1174,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         canManageUsers,
         login,
         logout,
+        changePassword,
         users,
         addUser,
         updateUser,

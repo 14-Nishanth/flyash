@@ -14,9 +14,14 @@ import {
   Key,
   ShieldCheck,
   RefreshCw,
+  Edit2,
+  X,
+  Eye,
+  EyeOff,
+  UserCheck,
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
-import { UserRole } from '../types';
+import { AppUser, UserRole } from '../types';
 
 export const Settings: React.FC = () => {
   const {
@@ -24,7 +29,9 @@ export const Settings: React.FC = () => {
     updateSettings,
     users,
     addUser,
+    updateUser,
     deleteUser,
+    changePassword,
     canManageUsers,
     canDelete,
     currentUser,
@@ -47,6 +54,12 @@ export const Settings: React.FC = () => {
   const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'idle'>('connected');
   const [dbCheckMsg, setDbCheckMsg] = useState('YES — Supabase PostgreSQL Cloud Database is Connected & Operational');
 
+  // Personal Password Change State
+  const [myNewPassword, setMyNewPassword] = useState('');
+  const [myConfirmPassword, setMyConfirmPassword] = useState('');
+  const [showMyPassword, setShowMyPassword] = useState(false);
+  const [passwordChangeMsg, setPasswordChangeMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // User creation state
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -54,6 +67,15 @@ export const Settings: React.FC = () => {
   const [newRole, setNewRole] = useState<UserRole>('operator');
   const [newPhone, setNewPhone] = useState('');
   const [userCreatedMsg, setUserCreatedMsg] = useState(false);
+
+  // User Editing Modal State
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editUsername, setEditUsername] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [editRole, setEditRole] = useState<UserRole>('operator');
+  const [editPhone, setEditPhone] = useState('');
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const testDatabaseConnection = async () => {
     setDbChecking(true);
@@ -95,6 +117,29 @@ export const Settings: React.FC = () => {
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 
+  // Handle Changing Logged-in User's Password
+  const handleChangeMyPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (myNewPassword !== myConfirmPassword) {
+      setPasswordChangeMsg({ type: 'error', text: 'Passwords do not match. Please re-enter.' });
+      return;
+    }
+    if (myNewPassword.trim().length < 4) {
+      setPasswordChangeMsg({ type: 'error', text: 'Password must be at least 4 characters long.' });
+      return;
+    }
+
+    const res = await changePassword(myNewPassword);
+    if (res.success) {
+      setPasswordChangeMsg({ type: 'success', text: 'Your password has been changed successfully!' });
+      setMyNewPassword('');
+      setMyConfirmPassword('');
+      setTimeout(() => setPasswordChangeMsg(null), 4000);
+    } else {
+      setPasswordChangeMsg({ type: 'error', text: res.message || 'Failed to update password.' });
+    }
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUsername || !newPassword || !newName) return;
@@ -113,12 +158,36 @@ export const Settings: React.FC = () => {
     setTimeout(() => setUserCreatedMsg(false), 3000);
   };
 
+  const openEditUserModal = (u: AppUser) => {
+    setEditingUser(u);
+    setEditName(u.name);
+    setEditUsername(u.username);
+    setEditPassword(u.password || '');
+    setEditRole(u.role);
+    setEditPhone(u.phone || '');
+    setEditModalOpen(true);
+  };
+
+  const handleSaveUserEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    await updateUser(editingUser.id, {
+      name: editName.trim(),
+      username: editUsername.trim().toLowerCase(),
+      password: editPassword.trim() || editingUser.password,
+      role: editRole,
+      phone: editPhone.trim(),
+    });
+    setEditModalOpen(false);
+    setEditingUser(null);
+  };
+
   const handleDeleteUser = async (id: string, username: string) => {
     if (username === 'admin' || username === 'owner') {
       alert('Master admin/owner accounts cannot be removed.');
       return;
     }
-    if (window.confirm(`Delete user account "${username}"?`)) {
+    if (window.confirm(`Are you sure you want to delete user account "${username}"?`)) {
       await deleteUser(id);
     }
   };
@@ -146,14 +215,93 @@ export const Settings: React.FC = () => {
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-          System Settings & User Management
+          System Settings & User Security
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-          Manage staff logins, role permissions, cloud database status, and automated notifications
+          Change passwords, manage staff logins & permissions, check cloud database status, and export backups
         </p>
       </div>
 
-      {/* CLOUD DATABASE CONNECTION STATUS (Credentials are protected & hidden) */}
+      {/* CHANGE MY PASSWORD CARD (Available to ALL logged in users) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-50 dark:bg-amber-950/60 rounded-xl text-amber-600 dark:text-amber-400">
+              <Key className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Change My Password
+              </h3>
+              <p className="text-xs text-slate-500">
+                Logged in as: <span className="font-bold text-slate-800 dark:text-slate-200">{currentUser?.name}</span> ({currentUser?.username} • <span className="uppercase text-[10px] font-mono font-bold text-amber-600">{currentUser?.role}</span>)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleChangeMyPassword} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                New Password *
+              </label>
+              <div className="relative">
+                <input
+                  type={showMyPassword ? 'text' : 'password'}
+                  value={myNewPassword}
+                  onChange={(e) => setMyNewPassword(e.target.value)}
+                  required
+                  placeholder="Enter new password (min 4 chars)"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowMyPassword(!showMyPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  {showMyPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Confirm New Password *
+              </label>
+              <input
+                type={showMyPassword ? 'text' : 'password'}
+                value={myConfirmPassword}
+                onChange={(e) => setMyConfirmPassword(e.target.value)}
+                required
+                placeholder="Re-enter new password"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            {passwordChangeMsg && (
+              <span
+                className={`text-xs font-semibold flex items-center gap-1.5 ${
+                  passwordChangeMsg.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'
+                }`}
+              >
+                {passwordChangeMsg.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                {passwordChangeMsg.text}
+              </span>
+            )}
+            <button
+              type="submit"
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-amber-600/20 ml-auto transition"
+            >
+              Update Password
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* CLOUD DATABASE CONNECTION STATUS */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2.5">
@@ -193,7 +341,7 @@ export const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* USER MANAGEMENT (Create login for data entry operators who cannot delete) */}
+      {/* USER MANAGEMENT (Create and Edit logins for staff) */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-5 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
           <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -205,7 +353,7 @@ export const Settings: React.FC = () => {
         </div>
 
         <p className="text-xs text-slate-600 dark:text-slate-400">
-          Create user accounts for plant staff and operators. Users with the <b>Data Entry Operator</b> role can add
+          Create and edit user accounts for plant staff and operators. Users with the <b>Data Entry Operator</b> role can add
           and edit all materials, production, and accounts data, but <b>cannot delete</b> any records from the database.
         </p>
 
@@ -279,7 +427,7 @@ export const Settings: React.FC = () => {
               ) : <span />}
               <button
                 type="submit"
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 transition"
               >
                 Create Account
               </button>
@@ -291,7 +439,7 @@ export const Settings: React.FC = () => {
           </div>
         )}
 
-        {/* Existing Users Table */}
+        {/* Existing Users Table with Edit & Delete Options */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
             <thead className="text-xs uppercase bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
@@ -300,12 +448,12 @@ export const Settings: React.FC = () => {
                 <th className="px-4 py-2.5">Username / Login</th>
                 <th className="px-4 py-2.5">Role</th>
                 <th className="px-4 py-2.5">Delete Permission</th>
-                <th className="px-4 py-2.5 text-center">Action</th>
+                <th className="px-4 py-2.5 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
               {users.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                   <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">{u.name}</td>
                   <td className="px-4 py-3 font-mono text-slate-600 dark:text-slate-400">{u.username}</td>
                   <td className="px-4 py-3">
@@ -331,15 +479,26 @@ export const Settings: React.FC = () => {
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {canDelete && u.username !== 'admin' && u.username !== 'owner' && (
-                      <button
-                        onClick={() => handleDeleteUser(u.id, u.username)}
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
-                        title="Delete User"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                    <div className="flex items-center justify-center gap-1.5">
+                      {canManageUsers && (
+                        <button
+                          onClick={() => openEditUserModal(u)}
+                          className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg transition"
+                          title="Edit User Details & Password"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {canDelete && u.username !== 'admin' && u.username !== 'owner' && (
+                        <button
+                          onClick={() => handleDeleteUser(u.id, u.username)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg transition"
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -347,6 +506,110 @@ export const Settings: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* EDIT USER MODAL */}
+      {editModalOpen && editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-indigo-600" /> Edit User Account: {editingUser.name}
+              </h3>
+              <button
+                onClick={() => setEditModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUserEdit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Username / Login *
+                </label>
+                <input
+                  type="text"
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  required
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  New Password (leave blank to keep current)
+                </label>
+                <input
+                  type="text"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Assigned Role
+                </label>
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value as UserRole)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="operator">Operator (Data Entry, No Delete)</option>
+                  <option value="admin">Administrator (Full Access)</option>
+                  <option value="owner">Plant Owner (Full Access)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="e.g. 9876543210"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold hover:bg-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Telegram Shift End Digest Automation */}
