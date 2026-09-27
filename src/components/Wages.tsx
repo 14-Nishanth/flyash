@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Banknote, Printer } from 'lucide-react';
+import { Banknote, Printer, Download } from 'lucide-react';
 
 export const Wages: React.FC = () => {
   const { employees, attendance, jobs } = useApp();
@@ -45,6 +45,8 @@ export const Wages: React.FC = () => {
     };
   });
 
+  const grandTotal = wageRows.reduce((sum, r) => sum + r.totalGrossEarned, 0);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -59,62 +61,78 @@ export const Wages: React.FC = () => {
         </div>
         <button
           onClick={() => window.print()}
-          className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center gap-1.5 border border-slate-300 dark:border-slate-700"
+          className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center gap-1.5 border border-slate-300 dark:border-slate-700 shadow-sm"
         >
-          <Printer className="w-4 h-4" /> Print Sheet
+          <Printer className="w-4 h-4" /> Print Wage Sheet
         </button>
       </div>
 
       {/* Date Filter & Statement Table */}
-      <div className="glass-panel overflow-hidden shadow-xl">
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Banknote className="w-4 h-4 text-green-500" /> Wage Statement
+            <Banknote className="w-4 h-4 text-emerald-600" /> Wage Statement Breakdown
           </h3>
           <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-slate-500">From:</span>
+            <span className="text-slate-600 dark:text-slate-400 font-sans font-medium">From:</span>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs"
+              className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
             />
-            <span className="text-slate-500">To:</span>
+            <span className="text-slate-600 dark:text-slate-400 font-sans font-medium">To:</span>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs"
+              className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
-            <thead className="text-xs uppercase bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+          <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+            <thead className="text-xs uppercase bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-semibold tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="px-5 py-3.5">Employee Name</th>
                 <th className="px-5 py-3.5">Attendance</th>
-                <th className="px-5 py-3.5 text-right font-mono">Daily Wage</th>
-                <th className="px-5 py-3.5 text-right font-mono">Piece-Rate Share</th>
-                <th className="px-5 py-3.5 text-right font-mono font-bold text-slate-900 dark:text-white">Total Net Payable</th>
+                <th className="px-5 py-3.5 text-right font-mono">Daily Wage (₹)</th>
+                <th className="px-5 py-3.5 text-right font-mono">Piece-Rate Share (₹)</th>
+                <th className="px-5 py-3.5 text-right font-mono font-bold text-slate-900 dark:text-white">
+                  Total Net Payable
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs font-mono">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs font-mono">
               {wageRows.map((r) => (
-                <tr key={r.employee.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
-                  <td className="px-5 py-3.5 font-sans font-semibold text-slate-900 dark:text-white text-sm">
+                <tr key={r.employee.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                  <td className="px-5 py-3.5 font-sans font-bold text-slate-900 dark:text-white text-sm">
                     {r.employee.name}
-                    <div className="text-[11px] text-slate-400 font-sans">{r.employee.role || 'Laborer'}</div>
+                    <div className="text-[11px] text-slate-400 font-sans font-normal">{r.employee.role || 'Laborer'}</div>
                   </td>
-                  <td className="px-5 py-3.5 font-sans">{r.presentDays} days</td>
-                  <td className="px-5 py-3.5 text-right font-bold text-slate-600 dark:text-slate-300">₹{r.dailyWageEarned.toLocaleString()}</td>
-                  <td className="px-5 py-3.5 text-right font-bold text-amber-600 dark:text-amber-400">₹{r.pieceRateEarned.toFixed(2)}</td>
+                  <td className="px-5 py-3.5 font-sans text-slate-600 dark:text-slate-300 font-medium">
+                    {r.presentDays} days
+                  </td>
+                  <td className="px-5 py-3.5 text-right font-bold text-slate-700 dark:text-slate-300">
+                    ₹{r.dailyWageEarned.toLocaleString()}
+                  </td>
+                  <td className="px-5 py-3.5 text-right font-bold text-amber-600 dark:text-amber-400">
+                    ₹{r.pieceRateEarned.toFixed(2)}
+                  </td>
                   <td className="px-5 py-3.5 text-right font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                     ₹{r.totalGrossEarned.toFixed(2)}
                   </td>
                 </tr>
               ))}
+              <tr className="bg-slate-50/80 dark:bg-slate-800/60 font-bold border-t-2 border-slate-200 dark:border-slate-700">
+                <td colSpan={4} className="px-5 py-4 font-sans text-right uppercase text-xs tracking-wider text-slate-700 dark:text-slate-300">
+                  Total Payroll Outflow
+                </td>
+                <td className="px-5 py-4 text-right font-mono text-emerald-600 dark:text-emerald-400 text-base">
+                  ₹{grandTotal.toFixed(2)}
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

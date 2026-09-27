@@ -134,6 +134,18 @@ export interface Expense {
   created_at: string;
 }
 
+export type UserRole = 'admin' | 'owner' | 'operator';
+
+export interface AppUser {
+  id: string;
+  username: string;
+  password?: string;
+  name: string;
+  role: UserRole;
+  phone?: string;
+  created_at: string;
+}
+
 export interface AlertSettings {
   supabase_url?: string;
   supabase_anon_key?: string;
@@ -144,3 +156,4 @@ export interface AlertSettings {
   daily_digest_enabled: boolean;
   daily_digest_time: string;
 }
+

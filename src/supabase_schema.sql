@@ -119,6 +119,17 @@ CREATE TABLE IF NOT EXISTS expenses (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 9. App Users (Role-based access: Admin, Owner, Operator)
+CREATE TABLE IF NOT EXISTS app_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'operator',
+  phone TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE parties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE material_inward ENABLE ROW LEVEL SECURITY;
@@ -128,6 +139,7 @@ ALTER TABLE job_wage_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_users ENABLE ROW LEVEL SECURITY;
 
 -- Allow public anonymous access for standard plant users
 CREATE POLICY "Public Read All" ON parties FOR ALL USING (true);
@@ -138,3 +150,5 @@ CREATE POLICY "Public Read All Jobs" ON job_wage_entries FOR ALL USING (true);
 CREATE POLICY "Public Read All Employees" ON employees FOR ALL USING (true);
 CREATE POLICY "Public Read All Attendance" ON attendance FOR ALL USING (true);
 CREATE POLICY "Public Read All Expenses" ON expenses FOR ALL USING (true);
+CREATE POLICY "Public Read All Users" ON app_users FOR ALL USING (true);
+
