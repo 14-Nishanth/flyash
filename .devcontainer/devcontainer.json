@@ -1,0 +1,13 @@
+{
+  "name": "Fly Ash Manager (TypeScript)",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:20",
+  "forwardPorts": [5000],
+  "portsAttributes": {
+    "5000": {
+      "label": "Fly Ash Plant Web App",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "npm install && npm run build",
+  "postStartCommand": "npm run start"
+}

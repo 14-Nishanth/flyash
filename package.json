@@ -4,7 +4,7 @@
   "description": "Fly Ash & Concrete Products Plant Management System in TypeScript",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && node -e \"require('fs').cpSync('src/views', 'dist/views', {recursive: true})\"",
+    "build": "tsc && node -e \"require('fs').cpSync('src/views', 'dist/views', {recursive: true}); if(require('fs').existsSync('src/public')) require('fs').cpSync('src/public', 'dist/public', {recursive: true});\"",
     "start": "ts-node src/index.ts",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "serve": "node dist/index.js"
