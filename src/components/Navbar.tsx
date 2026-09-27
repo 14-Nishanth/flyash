@@ -29,8 +29,8 @@ export const Navbar: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-600' },
     { id: 'materials', label: 'Materials & Stock', icon: Truck, color: 'text-amber-600' },
     { id: 'parties', label: 'Parties & Ledger', icon: Users, color: 'text-indigo-600' },
-    { id: 'production', label: 'Production & Labor', icon: Hammer, color: 'text-amber-600' },
-    { id: 'attendance', label: 'Attendance', icon: ClipboardCheck, color: 'text-teal-600' },
+    { id: 'production', label: 'Production', icon: Hammer, color: 'text-amber-600' },
+    { id: 'employees', label: 'Workers & Gangs', icon: ClipboardCheck, color: 'text-teal-600' },
     { id: 'wages', label: 'Wages Sheet', icon: Banknote, color: 'text-emerald-600' },
     { id: 'expenses', label: 'Expenses', icon: Receipt, color: 'text-rose-600' },
   ];

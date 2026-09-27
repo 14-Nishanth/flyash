@@ -11,6 +11,8 @@ import {
   AlertSettings,
   AppUser,
   UserRole,
+  WorkerGroup,
+  ProductRateMaster,
 } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 
@@ -42,6 +44,8 @@ interface AppContextType {
   employees: Employee[];
   attendance: AttendanceRecord[];
   expenses: Expense[];
+  workerGroups: WorkerGroup[];
+  productRates: ProductRateMaster[];
   settings: AlertSettings;
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -76,13 +80,22 @@ interface AppContextType {
   addExpense: (expense: Omit<Expense, 'id' | 'created_at'>) => Promise<void>;
   updateExpense: (id: string, expense: Partial<Expense>) => Promise<void>;
   deleteExpense: (id: string) => Promise<boolean>;
+  // Worker Groups CRUD
+  addGroup: (group: Omit<WorkerGroup, 'id' | 'created_at'>) => Promise<void>;
+  updateGroup: (id: string, group: Partial<WorkerGroup>) => Promise<void>;
+  deleteGroup: (id: string) => Promise<boolean>;
+  // Product Rates Master CRUD
+  addProductRate: (prod: Omit<ProductRateMaster, 'id' | 'created_at'>) => Promise<void>;
+  updateProductRate: (id: string, prod: Partial<ProductRateMaster>) => Promise<void>;
+  deleteProductRate: (id: string) => Promise<boolean>;
   // Utilities
   updateSettings: (newSettings: AlertSettings) => void;
   calculatePartyBalance: (partyId: string) => number;
   getRawMaterialStock: () => { [mat: string]: { quantity: number; unit: string } };
   getProductStock: () => { [prod: string]: { produced: number; dispatched: number; stock: number } };
+  calculateGroupWageDistribution: (groupId: string, totalWageAmount: number, overrideWorkerIds?: string[]) => { workerId: string; wage: number }[];
   // Duplicate check
-  checkDuplicate: (type: 'party' | 'inward' | 'outward' | 'expense' | 'job' | 'employee', data: any, excludeId?: string) => { isDuplicate: boolean; details?: string };
+  checkDuplicate: (type: 'party' | 'inward' | 'outward' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate', data: any, excludeId?: string) => { isDuplicate: boolean; details?: string };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -110,6 +123,156 @@ const DEFAULT_USERS: AppUser[] = [
     password: 'operator123',
     name: 'Data Entry Operator',
     role: 'operator',
+    created_at: new Date().toISOString(),
+  },
+];
+
+const DEFAULT_PRODUCT_RATES: ProductRateMaster[] = [
+  {
+    id: 'pr-1',
+    name: 'Fly Ash Brick 9x4x3',
+    category: 'Brick',
+    size: '9" × 4" × 3"',
+    unit: 'Pieces',
+    labor_rate_per_unit: 0.60,
+    selling_rate_per_unit: 5.50,
+    pieces_per_tray: 105,
+    wastage_per_tray: 5,
+    opening_stock: 5000,
+    notes: 'Standard high-density fly ash brick',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'pr-2',
+    name: 'Solid Block 4"',
+    category: 'Solid Block',
+    size: '4" (400×200×100mm)',
+    unit: 'Pieces',
+    labor_rate_per_unit: 1.20,
+    selling_rate_per_unit: 28.00,
+    pieces_per_tray: 48,
+    wastage_per_tray: 2,
+    opening_stock: 2000,
+    notes: '4 inch partition solid block',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'pr-3',
+    name: 'Solid Block 6"',
+    category: 'Solid Block',
+    size: '6" (400×200×150mm)',
+    unit: 'Pieces',
+    labor_rate_per_unit: 1.50,
+    selling_rate_per_unit: 36.00,
+    pieces_per_tray: 36,
+    wastage_per_tray: 2,
+    opening_stock: 1800,
+    notes: '6 inch load bearing solid block',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'pr-4',
+    name: 'Solid Block 6x8"',
+    category: 'Solid Block',
+    size: '6" × 8"',
+    unit: 'Pieces',
+    labor_rate_per_unit: 1.80,
+    selling_rate_per_unit: 42.00,
+    pieces_per_tray: 30,
+    wastage_per_tray: 1,
+    opening_stock: 1200,
+    notes: '6x8 inch concrete block',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'pr-5',
+    name: 'Solid Block 8x8"',
+    category: 'Solid Block',
+    size: '8" × 8"',
+    unit: 'Pieces',
+    labor_rate_per_unit: 2.20,
+    selling_rate_per_unit: 50.00,
+    pieces_per_tray: 24,
+    wastage_per_tray: 1,
+    opening_stock: 1000,
+    notes: '8x8 inch heavy duty foundation block',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'pr-6',
+    name: 'Solid Block 9x9"',
+    category: 'Solid Block',
+    size: '9" × 9"',
+    unit: 'Pieces',
+    labor_rate_per_unit: 2.50,
+    selling_rate_per_unit: 58.00,
+    pieces_per_tray: 20,
+    wastage_per_tray: 1,
+    opening_stock: 800,
+    notes: '9x9 inch structural column block',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'pr-7',
+    name: 'M-Sand (Manufactured Sand)',
+    category: 'Sand & Aggregate',
+    size: '0-4.75mm Graded',
+    unit: 'Tons',
+    labor_rate_per_unit: 0,
+    selling_rate_per_unit: 1250,
+    pieces_per_tray: 0,
+    wastage_per_tray: 0,
+    opening_stock: 50,
+    notes: 'High quality concrete M-Sand',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'pr-8',
+    name: 'P-Sand (Plastering Sand)',
+    category: 'Sand & Aggregate',
+    size: '0-2.36mm Fine',
+    unit: 'Tons',
+    labor_rate_per_unit: 0,
+    selling_rate_per_unit: 1450,
+    pieces_per_tray: 0,
+    wastage_per_tray: 0,
+    opening_stock: 35,
+    notes: 'Triple washed plastering sand',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'pr-9',
+    name: 'Quarry Dust',
+    category: 'Sand & Aggregate',
+    size: 'Fine Aggregate Dust',
+    unit: 'Tons',
+    labor_rate_per_unit: 0,
+    selling_rate_per_unit: 850,
+    pieces_per_tray: 0,
+    wastage_per_tray: 0,
+    opening_stock: 60,
+    notes: 'Base blue metal stone dust',
+    created_at: new Date().toISOString(),
+  },
+];
+
+const DEFAULT_WORKER_GROUPS: WorkerGroup[] = [
+  {
+    id: 'grp-1',
+    name: 'Production Gang 1 (Press Team)',
+    description: 'Automatic brick & block machine press operators and feed loaders',
+    member_ids: ['1', '2'],
+    split_type: 'equal',
+    member_shares: { '1': 1.0, '2': 1.0 },
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'grp-2',
+    name: 'Gang 2 (Stacking & Curing Team)',
+    description: 'Pallet unloading, curing yard stacking, and dispatch helpers',
+    member_ids: ['1'],
+    split_type: 'equal',
+    member_shares: { '1': 1.0 },
     created_at: new Date().toISOString(),
   },
 ];
@@ -164,6 +327,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ];
   });
 
+  const [workerGroups, setWorkerGroups] = useState<WorkerGroup[]>(() => {
+    const saved = localStorage.getItem('flyash_worker_groups');
+    return saved ? JSON.parse(saved) : DEFAULT_WORKER_GROUPS;
+  });
+
+  const [productRates, setProductRates] = useState<ProductRateMaster[]>(() => {
+    const saved = localStorage.getItem('flyash_product_rates');
+    return saved ? JSON.parse(saved) : DEFAULT_PRODUCT_RATES;
+  });
+
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => {
     const saved = localStorage.getItem('flyash_attendance');
     return saved ? JSON.parse(saved) : [];
@@ -188,12 +361,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const canDelete = currentUser?.role === 'admin' || currentUser?.role === 'owner';
   const canManageUsers = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
-  // Login handler supporting custom created users + master fallback + Supabase Auth
+  // Login handler
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     const cleanUser = username.trim().toLowerCase();
     const cleanPass = password.trim();
 
-    // 1. Check local users list
     const foundUser = users.find(
       (u) => u.username.toLowerCase() === cleanUser && u.password === cleanPass
     );
@@ -210,39 +382,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: true };
     }
 
-    // 2. Fallback built-in credentials
     if (cleanUser === 'admin' && cleanPass === 'admin123') {
-      const session: UserSession = {
-        username: 'admin',
-        name: 'Plant Administrator',
-        role: 'admin',
-      };
+      const session: UserSession = { username: 'admin', name: 'Plant Administrator', role: 'admin' };
       setCurrentUser(session);
       localStorage.setItem('flyash_user_session', JSON.stringify(session));
       return { success: true };
     }
     if (cleanUser === 'owner' && cleanPass === 'owner123') {
-      const session: UserSession = {
-        username: 'owner',
-        name: 'Plant Owner',
-        role: 'owner',
-      };
+      const session: UserSession = { username: 'owner', name: 'Plant Owner', role: 'owner' };
       setCurrentUser(session);
       localStorage.setItem('flyash_user_session', JSON.stringify(session));
       return { success: true };
     }
     if (cleanUser === 'operator' && cleanPass === 'operator123') {
-      const session: UserSession = {
-        username: 'operator',
-        name: 'Data Entry Operator',
-        role: 'operator',
-      };
+      const session: UserSession = { username: 'operator', name: 'Data Entry Operator', role: 'operator' };
       setCurrentUser(session);
       localStorage.setItem('flyash_user_session', JSON.stringify(session));
       return { success: true };
     }
 
-    // 3. Supabase Auth if email format
     const supabase = getSupabaseClient();
     if (supabase && cleanUser.includes('@')) {
       try {
@@ -265,7 +423,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    return { success: false, error: 'Invalid credentials. Please verify your username and password.' };
+    return { success: false, error: 'Invalid credentials. Please check your username and password.' };
   };
 
   const logout = () => {
@@ -295,6 +453,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('flyash_employees', JSON.stringify(employees));
   }, [employees]);
+  useEffect(() => {
+    localStorage.setItem('flyash_worker_groups', JSON.stringify(workerGroups));
+  }, [workerGroups]);
+  useEffect(() => {
+    localStorage.setItem('flyash_product_rates', JSON.stringify(productRates));
+  }, [productRates]);
   useEffect(() => {
     localStorage.setItem('flyash_attendance', JSON.stringify(attendance));
   }, [attendance]);
@@ -328,7 +492,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const { data: uData } = await supabase!.from('app_users').select('*');
         if (uData && uData.length > 0) {
-          // Merge unique users
           setUsers((prev) => {
             const combined = [...prev];
             uData.forEach((u) => {
@@ -360,16 +523,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const { data: expData } = await supabase!.from('expenses').select('*');
         if (expData && expData.length > 0) setExpenses(expData);
+
+        const { data: grpData } = await supabase!.from('worker_groups').select('*');
+        if (grpData && grpData.length > 0) setWorkerGroups(grpData);
+
+        const { data: prData } = await supabase!.from('product_rates').select('*');
+        if (prData && prData.length > 0) setProductRates(prData);
       } catch (err) {
-        console.warn('Supabase fetch error, operating in resilient dual-mode:', err);
+        console.warn('Supabase fetch dual-mode resilience:', err);
       }
     }
     fetchData();
   }, []);
 
+  // Dynamic Group Wage Split Calculator
+  const calculateGroupWageDistribution = (
+    groupId: string,
+    totalWageAmount: number,
+    overrideWorkerIds?: string[]
+  ): { workerId: string; wage: number }[] => {
+    const group = workerGroups.find((g) => g.id === groupId);
+    const workerIds = overrideWorkerIds && overrideWorkerIds.length > 0
+      ? overrideWorkerIds
+      : group?.member_ids || [];
+
+    if (workerIds.length === 0) return [];
+
+    if (!group || group.split_type === 'equal') {
+      const perWorker = totalWageAmount / workerIds.length;
+      return workerIds.map((id) => ({ workerId: id, wage: perWorker }));
+    }
+
+    // Shares based
+    let totalShares = 0;
+    workerIds.forEach((id) => {
+      const share = group.member_shares?.[id] || 1.0;
+      totalShares += share;
+    });
+
+    if (totalShares === 0) totalShares = 1;
+
+    return workerIds.map((id) => {
+      const share = group.member_shares?.[id] || 1.0;
+      return {
+        workerId: id,
+        wage: (totalWageAmount * share) / totalShares,
+      };
+    });
+  };
+
   // Duplicate Check Helper
   const checkDuplicate = (
-    type: 'party' | 'inward' | 'outward' | 'expense' | 'job' | 'employee',
+    type: 'party' | 'inward' | 'outward' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate',
     data: any,
     excludeId?: string
   ): { isDuplicate: boolean; details?: string } => {
@@ -463,7 +668,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (match) {
         return {
           isDuplicate: true,
-          details: `Worker "${match.name}" already registered in the system.`,
+          details: `Worker "${match.name}" already registered in the directory.`,
+        };
+      }
+    }
+
+    if (type === 'group') {
+      const match = workerGroups.find(
+        (g) => g.id !== excludeId && g.name.trim().toLowerCase() === data.name?.trim().toLowerCase()
+      );
+      if (match) {
+        return {
+          isDuplicate: true,
+          details: `Worker Gang "${match.name}" already exists.`,
+        };
+      }
+    }
+
+    if (type === 'product_rate') {
+      const match = productRates.find(
+        (p) => p.id !== excludeId && p.name.trim().toLowerCase() === data.name?.trim().toLowerCase()
+      );
+      if (match) {
+        return {
+          isDuplicate: true,
+          details: `Product "${match.name}" is already configured in rate master.`,
         };
       }
     }
@@ -479,28 +708,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setUsers((prev) => [...prev, newUser]);
-
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('app_users').insert(newUser);
-    }
+    if (supabase) await supabase.from('app_users').insert(newUser);
   };
 
   const updateUser = async (id: string, updated: Partial<AppUser>) => {
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('app_users').update(updated).eq('id', id);
-    }
+    if (supabase) await supabase.from('app_users').update(updated).eq('id', id);
   };
 
   const deleteUser = async (id: string): Promise<boolean> => {
     if (!canDelete) return false;
     setUsers((prev) => prev.filter((u) => u.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('app_users').delete().eq('id', id);
+    if (supabase) await supabase.from('app_users').delete().eq('id', id);
+    return true;
+  };
+
+  // --- WORKER GROUPS CRUD ---
+  const addGroup = async (group: Omit<WorkerGroup, 'id' | 'created_at'>) => {
+    const newGroup: WorkerGroup = {
+      ...group,
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      created_at: new Date().toISOString(),
+    };
+    setWorkerGroups((prev) => [...prev, newGroup]);
+    const supabase = getSupabaseClient();
+    if (supabase) await supabase.from('worker_groups').insert(newGroup);
+  };
+
+  const updateGroup = async (id: string, updated: Partial<WorkerGroup>) => {
+    setWorkerGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...updated } : g)));
+    const supabase = getSupabaseClient();
+    if (supabase) await supabase.from('worker_groups').update(updated).eq('id', id);
+  };
+
+  const deleteGroup = async (id: string): Promise<boolean> => {
+    if (!canDelete) {
+      alert('Access Denied: Only Administrator or Owner can delete worker gangs.');
+      return false;
     }
+    setWorkerGroups((prev) => prev.filter((g) => g.id !== id));
+    const supabase = getSupabaseClient();
+    if (supabase) await supabase.from('worker_groups').delete().eq('id', id);
+    return true;
+  };
+
+  // --- PRODUCT RATES MASTER CRUD ---
+  const addProductRate = async (prod: Omit<ProductRateMaster, 'id' | 'created_at'>) => {
+    const newProd: ProductRateMaster = {
+      ...prod,
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      created_at: new Date().toISOString(),
+    };
+    setProductRates((prev) => [...prev, newProd]);
+    const supabase = getSupabaseClient();
+    if (supabase) await supabase.from('product_rates').insert(newProd);
+  };
+
+  const updateProductRate = async (id: string, updated: Partial<ProductRateMaster>) => {
+    setProductRates((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
+    const supabase = getSupabaseClient();
+    if (supabase) await supabase.from('product_rates').update(updated).eq('id', id);
+  };
+
+  const deleteProductRate = async (id: string): Promise<boolean> => {
+    if (!canDelete) {
+      alert('Access Denied: Only Administrator or Owner can remove product rates.');
+      return false;
+    }
+    setProductRates((prev) => prev.filter((p) => p.id !== id));
+    const supabase = getSupabaseClient();
+    if (supabase) await supabase.from('product_rates').delete().eq('id', id);
     return true;
   };
 
@@ -512,19 +792,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setParties((prev) => [newParty, ...prev]);
-
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('parties').insert(newParty);
-    }
+    if (supabase) await supabase.from('parties').insert(newParty);
   };
 
   const updateParty = async (id: string, updated: Partial<Party>) => {
     setParties((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('parties').update(updated).eq('id', id);
-    }
+    if (supabase) await supabase.from('parties').update(updated).eq('id', id);
   };
 
   const deleteParty = async (id: string): Promise<boolean> => {
@@ -534,9 +809,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setParties((prev) => prev.filter((p) => p.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('parties').delete().eq('id', id);
-    }
+    if (supabase) await supabase.from('parties').delete().eq('id', id);
     return true;
   };
 
@@ -550,11 +823,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setInwards((prev) => [newInward, ...prev]);
-
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('material_inward').insert(newInward);
-    }
+    if (supabase) await supabase.from('material_inward').insert(newInward);
   };
 
   const updateInward = async (id: string, updated: Partial<MaterialInward>) => {
@@ -564,9 +834,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setInwards((prev) => prev.map((i) => (i.id === id ? { ...i, ...updated } : i)));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('material_inward').update(updated).eq('id', id);
-    }
+    if (supabase) await supabase.from('material_inward').update(updated).eq('id', id);
   };
 
   const deleteInward = async (id: string): Promise<boolean> => {
@@ -576,9 +844,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setInwards((prev) => prev.filter((i) => i.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('material_inward').delete().eq('id', id);
-    }
+    if (supabase) await supabase.from('material_inward').delete().eq('id', id);
     return true;
   };
 
@@ -592,11 +858,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setOutwards((prev) => [newOutward, ...prev]);
-
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('material_outward').insert(newOutward);
-    }
+    if (supabase) await supabase.from('material_outward').insert(newOutward);
   };
 
   const updateOutward = async (id: string, updated: Partial<MaterialOutward>) => {
@@ -606,9 +869,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setOutwards((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('material_outward').update(updated).eq('id', id);
-    }
+    if (supabase) await supabase.from('material_outward').update(updated).eq('id', id);
   };
 
   const deleteOutward = async (id: string): Promise<boolean> => {
@@ -618,9 +879,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setOutwards((prev) => prev.filter((o) => o.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('material_outward').delete().eq('id', id);
-    }
+    if (supabase) await supabase.from('material_outward').delete().eq('id', id);
     return true;
   };
 
@@ -634,11 +893,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setPayments((prev) => [newPayment, ...prev]);
-
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('payments').insert(newPayment);
-    }
+    if (supabase) await supabase.from('payments').insert(newPayment);
   };
 
   const updatePayment = async (id: string, updated: Partial<Payment>) => {
@@ -648,9 +904,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setPayments((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('payments').update(updated).eq('id', id);
-    }
+    if (supabase) await supabase.from('payments').update(updated).eq('id', id);
   };
 
   const deletePayment = async (id: string): Promise<boolean> => {
@@ -660,9 +914,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setPayments((prev) => prev.filter((p) => p.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('payments').delete().eq('id', id);
-    }
+    if (supabase) await supabase.from('payments').delete().eq('id', id);
     return true;
   };
 
@@ -674,19 +926,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setJobs((prev) => [newJob, ...prev]);
-
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('job_wage_entries').insert(newJob);
-    }
+    if (supabase) await supabase.from('job_wage_entries').insert(newJob);
   };
 
   const updateJob = async (id: string, updated: Partial<JobWageEntry>) => {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...updated } : j)));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('job_wage_entries').update(updated).eq('id', id);
-    }
+    if (supabase) await supabase.from('job_wage_entries').update(updated).eq('id', id);
   };
 
   const deleteJob = async (id: string): Promise<boolean> => {
@@ -696,9 +943,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setJobs((prev) => prev.filter((j) => j.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('job_wage_entries').delete().eq('id', id);
-    }
+    if (supabase) await supabase.from('job_wage_entries').delete().eq('id', id);
     return true;
   };
 
@@ -709,19 +954,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
     };
     setEmployees((prev) => [...prev, newEmp]);
-
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('employees').insert(newEmp);
-    }
+    if (supabase) await supabase.from('employees').insert(newEmp);
   };
 
   const updateEmployee = async (id: string, updated: Partial<Employee>) => {
     setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('employees').update(updated).eq('id', id);
-    }
+    if (supabase) await supabase.from('employees').update(updated).eq('id', id);
   };
 
   const deleteEmployee = async (id: string): Promise<boolean> => {
@@ -731,9 +971,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setEmployees((prev) => prev.filter((e) => e.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('employees').delete().eq('id', id);
-    }
+    if (supabase) await supabase.from('employees').delete().eq('id', id);
     return true;
   };
 
@@ -770,9 +1008,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setAttendance((prev) => prev.filter((a) => a.date !== date));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('attendance').delete().eq('date', date);
-    }
+    if (supabase) await supabase.from('attendance').delete().eq('date', date);
     return true;
   };
 
@@ -784,19 +1020,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setExpenses((prev) => [newExpense, ...prev]);
-
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('expenses').insert(newExpense);
-    }
+    if (supabase) await supabase.from('expenses').insert(newExpense);
   };
 
   const updateExpense = async (id: string, updated: Partial<Expense>) => {
     setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('expenses').update(updated).eq('id', id);
-    }
+    if (supabase) await supabase.from('expenses').update(updated).eq('id', id);
   };
 
   const deleteExpense = async (id: string): Promise<boolean> => {
@@ -806,9 +1037,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.from('expenses').delete().eq('id', id);
-    }
+    if (supabase) await supabase.from('expenses').delete().eq('id', id);
     return true;
   };
 
@@ -857,6 +1086,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const getProductStock = (): { [prod: string]: { produced: number; dispatched: number; stock: number } } => {
     const result: { [prod: string]: { produced: number; dispatched: number; stock: number } } = {};
 
+    // Initial opening stock from product rates
+    productRates.forEach((pr) => {
+      if (pr.opening_stock) {
+        result[pr.name] = { produced: pr.opening_stock, dispatched: 0, stock: pr.opening_stock };
+      }
+    });
+
     jobs.forEach((j) => {
       const prod = j.product_name;
       if (!result[prod]) {
@@ -900,6 +1136,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         employees,
         attendance,
         expenses,
+        workerGroups,
+        productRates,
         settings,
         activeTab,
         setActiveTab,
@@ -926,10 +1164,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addExpense,
         updateExpense,
         deleteExpense,
+        addGroup,
+        updateGroup,
+        deleteGroup,
+        addProductRate,
+        updateProductRate,
+        deleteProductRate,
         updateSettings,
         calculatePartyBalance,
         getRawMaterialStock,
         getProductStock,
+        calculateGroupWageDistribution,
         checkDuplicate,
       }}
     >

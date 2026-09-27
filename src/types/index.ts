@@ -146,6 +146,31 @@ export interface AppUser {
   created_at: string;
 }
 
+export interface WorkerGroup {
+  id: string;
+  name: string;
+  description?: string;
+  member_ids: string[];
+  split_type: 'equal' | 'percentage' | 'shares';
+  member_shares?: { [empId: string]: number }; // e.g. 1.0, 1.2, 0.8
+  created_at: string;
+}
+
+export interface ProductRateMaster {
+  id: string;
+  name: string;
+  category: 'Brick' | 'Solid Block' | 'Hollow Block' | 'Paver' | 'Sand & Aggregate' | 'Raw Material';
+  size?: string;
+  unit: string;
+  labor_rate_per_unit: number; // Piece rate earned by labor group
+  selling_rate_per_unit: number; // Customer price
+  pieces_per_tray: number; // Tray multiplier for production
+  wastage_per_tray: number; // Standard wastage cut
+  opening_stock: number;
+  notes?: string;
+  created_at: string;
+}
+
 export interface AlertSettings {
   supabase_url?: string;
   supabase_anon_key?: string;
@@ -156,4 +181,5 @@ export interface AlertSettings {
   daily_digest_enabled: boolean;
   daily_digest_time: string;
 }
+
 

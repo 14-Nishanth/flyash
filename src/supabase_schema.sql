@@ -130,6 +130,33 @@ CREATE TABLE IF NOT EXISTS app_users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 10. Worker Gangs & Groups
+CREATE TABLE IF NOT EXISTS worker_groups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  member_ids JSONB DEFAULT '[]'::jsonb,
+  split_type TEXT DEFAULT 'equal',
+  member_shares JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 11. Master Product & Material Rates
+CREATE TABLE IF NOT EXISTS product_rates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  category TEXT DEFAULT 'Solid Block',
+  size TEXT,
+  unit TEXT DEFAULT 'Pieces',
+  labor_rate_per_unit NUMERIC DEFAULT 0.60,
+  selling_rate_per_unit NUMERIC DEFAULT 32.0,
+  pieces_per_tray NUMERIC DEFAULT 105,
+  wastage_per_tray NUMERIC DEFAULT 5,
+  opening_stock NUMERIC DEFAULT 0,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE parties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE material_inward ENABLE ROW LEVEL SECURITY;
@@ -140,6 +167,8 @@ ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE worker_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_rates ENABLE ROW LEVEL SECURITY;
 
 -- Allow public anonymous access for standard plant users
 CREATE POLICY "Public Read All" ON parties FOR ALL USING (true);
@@ -151,4 +180,7 @@ CREATE POLICY "Public Read All Employees" ON employees FOR ALL USING (true);
 CREATE POLICY "Public Read All Attendance" ON attendance FOR ALL USING (true);
 CREATE POLICY "Public Read All Expenses" ON expenses FOR ALL USING (true);
 CREATE POLICY "Public Read All Users" ON app_users FOR ALL USING (true);
+CREATE POLICY "Public Read All Groups" ON worker_groups FOR ALL USING (true);
+CREATE POLICY "Public Read All ProductRates" ON product_rates FOR ALL USING (true);
+
 
