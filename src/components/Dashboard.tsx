@@ -9,7 +9,20 @@ import {
   Warehouse, 
   Plus, 
   Share2, 
-  ArrowUpRight 
+  ArrowUpRight,
+  TrendingUp,
+  Users,
+  Hammer,
+  ClipboardCheck,
+  Banknote,
+  Receipt,
+  Sliders,
+  Shield,
+  Key,
+  Calendar,
+  Layers,
+  ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
@@ -19,6 +32,9 @@ export const Dashboard: React.FC = () => {
     jobs, 
     expenses, 
     parties, 
+    employees,
+    workerGroups,
+    productRates,
     calculatePartyBalance, 
     getRawMaterialStock, 
     getProductStock, 
@@ -77,6 +93,90 @@ export const Dashboard: React.FC = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
+  // Directory of all system pages and modules
+  const allPageShortcuts = [
+    {
+      id: 'analytics',
+      title: 'Turnover & Analytics',
+      subtitle: 'Week-wise breakdown (W1–W5), monthly profit, margin % & WhatsApp payment slips',
+      badge: `₹${outwards.reduce((sum, o) => sum + o.amount, 0).toLocaleString()} Total Sales`,
+      icon: TrendingUp,
+      color: 'from-blue-500 to-indigo-600',
+      bgLight: 'bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/50',
+      iconColor: 'text-blue-600 dark:text-blue-400',
+    },
+    {
+      id: 'materials',
+      title: 'Materials & Stock',
+      subtitle: 'Raw material inward delivery challans, stock on hand & customer dispatches',
+      badge: `${inwards.length} Inward • ${outwards.length} Outward`,
+      icon: Truck,
+      color: 'from-amber-500 to-orange-600',
+      bgLight: 'bg-amber-50/70 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/50',
+      iconColor: 'text-amber-600 dark:text-amber-400',
+    },
+    {
+      id: 'parties',
+      title: 'Parties & Ledger',
+      subtitle: 'Customer & supplier accounts, ledger history, payment entries & balance tracking',
+      badge: `${parties.length} Registered Parties`,
+      icon: Users,
+      color: 'from-indigo-500 to-purple-600',
+      bgLight: 'bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50',
+      iconColor: 'text-indigo-600 dark:text-indigo-400',
+    },
+    {
+      id: 'production',
+      title: 'Shift Production',
+      subtitle: 'Machine press logs, trays pressed, wastage deduction & yard inventory',
+      badge: `${jobs.length} Shift Logs Recorded`,
+      icon: Hammer,
+      color: 'from-amber-600 to-yellow-600',
+      bgLight: 'bg-yellow-50/70 dark:bg-yellow-950/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800/50',
+      iconColor: 'text-amber-600 dark:text-amber-400',
+    },
+    {
+      id: 'employees',
+      title: 'Workers & Gangs',
+      subtitle: 'Gang wage division (Equal / Multiplier), worker directory, daily attendance & material rates master',
+      badge: `${employees.length} Workers • ${workerGroups.length} Gangs`,
+      icon: ClipboardCheck,
+      color: 'from-teal-500 to-emerald-600',
+      bgLight: 'bg-teal-50/70 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800/50',
+      iconColor: 'text-teal-600 dark:text-teal-400',
+    },
+    {
+      id: 'wages',
+      title: 'Wages Sheet',
+      subtitle: 'Shift piece-rate earnings, gang wage shares, worker payouts & payment clearances',
+      badge: `₹${jobs.reduce((sum, j) => sum + j.total_amount, 0).toLocaleString()} Wages Disbursed`,
+      icon: Banknote,
+      color: 'from-emerald-500 to-green-600',
+      bgLight: 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50',
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+    },
+    {
+      id: 'expenses',
+      title: 'Plant Expenses',
+      subtitle: 'Diesel / Fuel, Electricity, machine maintenance, oil/grease & operating costs',
+      badge: `${expenses.length} Expenses Recorded`,
+      icon: Receipt,
+      color: 'from-rose-500 to-red-600',
+      bgLight: 'bg-rose-50/70 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/50',
+      iconColor: 'text-rose-600 dark:text-rose-400',
+    },
+    {
+      id: 'settings',
+      title: 'Settings & Security',
+      subtitle: 'Change Password, User Accounts & Roles, Telegram/WhatsApp/Email Alerts & Backup',
+      badge: 'Security & Cloud Config',
+      icon: Sliders,
+      color: 'from-slate-600 to-slate-800',
+      bgLight: 'bg-slate-100/80 dark:bg-slate-800/50 text-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+      iconColor: 'text-slate-700 dark:text-slate-300',
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -92,7 +192,7 @@ export const Dashboard: React.FC = () => {
             Plant Executive Hub
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Real-time manufacturing metrics, active stock, dispatch feed & party balances
+            Real-time manufacturing metrics, active stock, dispatch feed & quick navigation to all pages
           </p>
         </div>
 
@@ -109,6 +209,62 @@ export const Dashboard: React.FC = () => {
           >
             <Plus className="w-4 h-4 text-amber-500" /> Record Production
           </button>
+        </div>
+      </div>
+
+      {/* QUICK LINKS TO ALL PAGES (System Navigation Command Center) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                All Application Pages & Direct Shortcuts
+              </h3>
+              <p className="text-[11px] text-slate-500">Click any card to directly open that section or module</p>
+            </div>
+          </div>
+          <span className="hidden sm:inline-flex text-xs font-mono font-bold text-slate-400">
+            8 Modules
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {allPageShortcuts.map((page) => {
+            const Icon = page.icon;
+            return (
+              <button
+                key={page.id}
+                onClick={() => setActiveTab(page.id)}
+                className={`group text-left p-4 rounded-xl border transition-all hover:scale-[1.02] hover:shadow-md ${page.bgLight} flex flex-col justify-between`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`p-2 rounded-lg bg-white dark:bg-slate-900 shadow-sm ${page.iconColor}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-900/80 shadow-xs border border-current opacity-90">
+                      {page.badge}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors flex items-center justify-between">
+                    {page.title}
+                    <ArrowRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all text-amber-600 dark:text-amber-400" />
+                  </h4>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                    {page.subtitle}
+                  </p>
+                </div>
+                
+                <div className="mt-3 pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  <span>Open {page.title.split(' ')[0]}</span>
+                  <span className="text-amber-600 dark:text-amber-400 font-extrabold group-hover:translate-x-0.5 transition-transform">→</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
