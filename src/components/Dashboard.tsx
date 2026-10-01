@@ -268,15 +268,18 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards (Interactive Direct Links) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Production */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+        <button
+          onClick={() => setActiveTab('production')}
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm text-left hover:scale-[1.02] hover:border-blue-400 dark:hover:border-blue-700 transition group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               Today's Production
             </span>
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition">
               <Warehouse className="w-5 h-5" />
             </div>
           </div>
@@ -289,15 +292,18 @@ export const Dashboard: React.FC = () => {
               <span className="font-mono font-bold text-amber-600 dark:text-amber-400">₹{todayLaborCost.toLocaleString()}</span>
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Dispatches */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+        <button
+          onClick={() => setActiveTab('materials')}
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm text-left hover:scale-[1.02] hover:border-emerald-400 dark:hover:border-emerald-700 transition group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
               Today's Dispatches
             </span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
               <Truck className="w-5 h-5" />
             </div>
           </div>
@@ -310,15 +316,18 @@ export const Dashboard: React.FC = () => {
               <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">₹{todayOutwardRev.toLocaleString()}</span>
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Raw Inward */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+        <button
+          onClick={() => setActiveTab('materials')}
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm text-left hover:scale-[1.02] hover:border-indigo-400 dark:hover:border-indigo-700 transition group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
               Today's Raw Inward
             </span>
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition">
               <Package className="w-5 h-5" />
             </div>
           </div>
@@ -331,15 +340,18 @@ export const Dashboard: React.FC = () => {
               <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">₹{todayInwardCost.toLocaleString()}</span>
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Expenses */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+        <button
+          onClick={() => setActiveTab('expenses')}
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm text-left hover:scale-[1.02] hover:border-rose-400 dark:hover:border-rose-700 transition group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
               Today's Expenses
             </span>
-            <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition">
               <Wallet className="w-5 h-5" />
             </div>
           </div>
@@ -352,7 +364,7 @@ export const Dashboard: React.FC = () => {
               <span className="text-[10px] text-rose-500 uppercase font-semibold">Daily</span>
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Raw Material Inventory & Yard Stock */}
@@ -404,19 +416,39 @@ export const Dashboard: React.FC = () => {
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Warehouse className="w-5 h-5 text-amber-600" /> Finished Goods Stock (Yard)
             </h3>
-            <span className="text-xs text-slate-400 font-medium">Available Pcs</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab('production')}
+                className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-semibold"
+                title="View shift press entries & add production"
+              >
+                Production <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-slate-300 dark:text-slate-700">|</span>
+              <button
+                onClick={() => setActiveTab('materials')}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold"
+                title="View & record dispatches"
+              >
+                Dispatch <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           {prodKeys.length > 0 ? (
             <div className="grid grid-cols-2 gap-3">
               {prodKeys.map((prod) => (
-                <div
+                <button
                   key={prod}
-                  className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between"
+                  onClick={() => setActiveTab('production')}
+                  className="p-3 bg-slate-50 dark:bg-slate-800/60 hover:bg-amber-50/50 dark:hover:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between text-left transition hover:scale-[1.02] group"
                 >
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate" title={prod}>
-                    {prod}
-                  </span>
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400" title={prod}>
+                      {prod}
+                    </span>
+                    <ArrowRight className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                  </div>
                   <div
                     className={`text-lg font-bold font-mono mt-1 ${
                       prodStocks[prod].stock >= 0
@@ -427,14 +459,21 @@ export const Dashboard: React.FC = () => {
                     {prodStocks[prod].stock.toLocaleString()}{' '}
                     <span className="text-[10px] text-slate-400 font-normal">Pcs</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           ) : (
-            <div className="p-8 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center">
+            <div className="p-8 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center space-y-2">
+              <Warehouse className="w-6 h-6 text-slate-400 mx-auto" />
               <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
                 No finished products produced or dispatched yet.
               </p>
+              <button
+                onClick={() => setActiveTab('production')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+              >
+                <Plus className="w-3.5 h-3.5" /> Record Shift Production
+              </button>
             </div>
           )}
         </div>
