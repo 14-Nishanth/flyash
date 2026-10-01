@@ -93,7 +93,7 @@ interface AppContextType {
   // Utilities
   updateSettings: (newSettings: AlertSettings) => void;
   calculatePartyBalance: (partyId: string) => number;
-  getRawMaterialStock: () => { [mat: string]: { quantity: number; unit: string } };
+  getRawMaterialStock: () => { [mat: string]: { quantity: number; unit: string; secondaryInfo?: string } };
   getProductStock: () => { [prod: string]: { produced: number; dispatched: number; stock: number } };
   calculateGroupWageDistribution: (groupId: string, totalWageAmount: number, overrideWorkerIds?: string[]) => { workerId: string; wage: number }[];
   // Duplicate check
@@ -1151,15 +1151,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Accurate Raw Material Stock (Only Mentioned / User Recorded)
-  const getRawMaterialStock = (): { [mat: string]: { quantity: number; unit: string } } => {
-    const result: { [mat: string]: { quantity: number; unit: string } } = {};
+  const getRawMaterialStock = (): { [mat: string]: { quantity: number; unit: string; secondaryInfo?: string } } => {
+    const result: { [mat: string]: { quantity: number; unit: string; secondaryInfo?: string } } = {};
     inwards.forEach((item) => {
       const mat = item.material_type;
+      const unit = item.quantity_unit || 'Ton';
       if (!result[mat]) {
-        result[mat] = { quantity: 0, unit: item.quantity_unit || 'Ton' };
+        result[mat] = { quantity: 0, unit };
       }
       result[mat].quantity += item.quantity_mt;
     });
+
+    // Add secondary bag conversions for Cement if stored in Tons
+    Object.keys(result).forEach((mat) => {
+      const isCement = mat.toLowerCase().includes('cement');
+      if (isCement) {
+        if (result[mat].unit === 'Ton' || result[mat].unit === 'MT') {
+          const bags = result[mat].quantity * 20;
+          result[mat].secondaryInfo = `(${bags.toLocaleString()} Bags @ 50kg)`;
+        } else if (result[mat].unit === 'Bags') {
+          const tons = (result[mat].quantity / 20).toFixed(2);
+          result[mat].secondaryInfo = `(${tons} Tons)`;
+        }
+      }
+    });
+
     return result;
   };
 

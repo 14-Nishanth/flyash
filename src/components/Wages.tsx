@@ -47,6 +47,21 @@ export const Wages: React.FC = () => {
 
   const grandTotal = wageRows.reduce((sum, r) => sum + r.totalGrossEarned, 0);
 
+  // Operation wage breakdown
+  const filteredJobs = jobs.filter((j) => j.date >= dateFrom && j.date <= dateTo);
+  const productionWages = filteredJobs
+    .filter((j) => j.job_type === 'Only Production' || !j.job_type || j.job_type === 'Production')
+    .reduce((sum, j) => sum + (j.total_amount || 0), 0);
+  const loadingWages = filteredJobs
+    .filter((j) => j.job_type === 'Only Loading')
+    .reduce((sum, j) => sum + (j.total_amount || 0), 0);
+  const unloadingWages = filteredJobs
+    .filter((j) => j.job_type === 'Only Unloading')
+    .reduce((sum, j) => sum + (j.total_amount || 0), 0);
+  const loadUnloadWages = filteredJobs
+    .filter((j) => j.job_type === 'Loading / Unloading')
+    .reduce((sum, j) => sum + (j.total_amount || 0), 0);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -65,6 +80,46 @@ export const Wages: React.FC = () => {
         >
           <Printer className="w-4 h-4" /> Print Wage Sheet
         </button>
+      </div>
+
+      {/* Operation Type Wage Breakdown Summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-amber-200/80 dark:border-amber-900/50 shadow-sm">
+          <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+            Only Production
+          </span>
+          <div className="mt-1 text-lg font-extrabold font-mono text-slate-900 dark:text-white">
+            ₹{productionWages.toLocaleString()}
+          </div>
+          <span className="text-[10px] text-slate-400 font-medium">Batch block pressing</span>
+        </div>
+        <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-blue-200/80 dark:border-blue-900/50 shadow-sm">
+          <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+            Only Loading
+          </span>
+          <div className="mt-1 text-lg font-extrabold font-mono text-slate-900 dark:text-white">
+            ₹{loadingWages.toLocaleString()}
+          </div>
+          <span className="text-[10px] text-slate-400 font-medium">Lorry loading operations</span>
+        </div>
+        <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-purple-200/80 dark:border-purple-900/50 shadow-sm">
+          <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wide">
+            Only Unloading
+          </span>
+          <div className="mt-1 text-lg font-extrabold font-mono text-slate-900 dark:text-white">
+            ₹{unloadingWages.toLocaleString()}
+          </div>
+          <span className="text-[10px] text-slate-400 font-medium">Yard unloading & stacking</span>
+        </div>
+        <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/50 shadow-sm">
+          <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+            Loading / Unloading
+          </span>
+          <div className="mt-1 text-lg font-extrabold font-mono text-slate-900 dark:text-white">
+            ₹{loadUnloadWages.toLocaleString()}
+          </div>
+          <span className="text-[10px] text-slate-400 font-medium">Combined dispatch handling</span>
+        </div>
       </div>
 
       {/* Date Filter & Statement Table */}

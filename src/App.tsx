@@ -16,6 +16,17 @@ import { Settings } from './components/Settings';
 export const App: React.FC = () => {
   const { currentUser, activeTab } = useApp();
 
+  React.useEffect(() => {
+    const handleWheel = () => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl as HTMLInputElement).type === 'number') {
+        (activeEl as HTMLInputElement).blur();
+      }
+    };
+    window.addEventListener('wheel', handleWheel, { passive: true });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, []);
+
   // If user is not logged in, render the Login Screen
   if (!currentUser) {
     return <Login />;

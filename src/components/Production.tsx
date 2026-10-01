@@ -45,7 +45,7 @@ export const Production: React.FC = () => {
   });
 
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [jobType, setJobType] = useState('Production');
+  const [jobType, setJobType] = useState('Only Production');
   const [productName, setProductName] = useState('Fly Ash Brick 9x4x3');
   const [ratePerUnit, setRatePerUnit] = useState('0.60');
   const [trayCount, setTrayCount] = useState('36');
@@ -98,7 +98,7 @@ export const Production: React.FC = () => {
   const openCreateModal = () => {
     setEditingJob(null);
     setDate(new Date().toISOString().split('T')[0]);
-    setJobType('Production');
+    setJobType('Only Production');
     const defaultProd = productRates[0]?.name || 'Fly Ash Brick 9x4x3';
     handleSelectProductPreset(defaultProd);
     setTrayCount('36');
@@ -114,7 +114,7 @@ export const Production: React.FC = () => {
   const openEditModal = (job: JobWageEntry) => {
     setEditingJob(job);
     setDate(job.date);
-    setJobType(job.job_type);
+    setJobType(job.job_type || 'Only Production');
     setProductName(job.product_name);
     setRatePerUnit(String(job.rate_per_unit));
     setTrayCount(String(job.tray_count));
@@ -231,74 +231,91 @@ export const Production: React.FC = () => {
             <thead className="text-xs uppercase bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-semibold tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="px-4 py-3.5">Date</th>
+                <th className="px-4 py-3.5">Work Type</th>
                 <th className="px-4 py-3.5">Product & Piece Rate</th>
                 <th className="px-4 py-3.5">Gang / Laborers</th>
                 <th className="px-4 py-3.5">Trays / Gross Pcs</th>
                 <th className="px-4 py-3.5 text-rose-600 dark:text-rose-400">Wastage Cut</th>
-                <th className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">Net Production</th>
+                <th className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">Net Quantity</th>
                 <th className="px-4 py-3.5 text-right font-bold text-emerald-600 dark:text-emerald-400">Total Wage Pool</th>
                 <th className="px-4 py-3.5 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-              {jobs.map((job) => (
-                <tr key={job.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-                  <td className="px-4 py-3.5 text-slate-500 font-mono">{job.date}</td>
-                  <td className="px-4 py-3.5">
-                    <div className="font-semibold text-slate-900 dark:text-white">{job.product_name}</div>
-                    <div className="text-[11px] text-amber-600 dark:text-amber-400 font-mono font-bold">
-                      @ ₹{job.rate_per_unit}/piece
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <div className="font-semibold text-slate-800 dark:text-slate-200">{job.group_name || 'Gang 1'}</div>
-                    <div className="text-[11px] text-slate-500">
-                      {job.worker_count} active workers (avg ₹{Math.round(job.wage_per_worker)}/ea)
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5 font-mono">
-                    <div>{job.tray_count} trays × {job.pieces_per_tray}</div>
-                    <div className="text-[11px] text-slate-400">{job.gross_quantity} gross pcs</div>
-                  </td>
-                  <td className="px-4 py-3.5 font-mono text-rose-600 dark:text-rose-400 font-bold">
-                    -{job.total_wastage} pcs
-                    <div className="text-[10px] text-rose-400 font-normal">(-₹{Math.round(job.wastage_amount)})</div>
-                  </td>
-                  <td className="px-4 py-3.5 font-mono font-bold text-slate-900 dark:text-white text-sm">
-                    {job.quantity.toLocaleString()} pcs
-                  </td>
-                  <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                    ₹{job.total_amount.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3.5 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <button
-                        onClick={() => openEditModal(job)}
-                        className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition"
-                        title="Edit production log"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      {canDelete ? (
+              {jobs.map((job) => {
+                const typeColor =
+                  job.job_type === 'Only Loading'
+                    ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800'
+                    : job.job_type === 'Only Unloading'
+                    ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800'
+                    : job.job_type === 'Loading / Unloading'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800';
+
+                return (
+                  <tr key={job.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                    <td className="px-4 py-3.5 text-slate-500 font-mono">{job.date}</td>
+                    <td className="px-4 py-3.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${typeColor}`}>
+                        {job.job_type || 'Only Production'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="font-semibold text-slate-900 dark:text-white">{job.product_name}</div>
+                      <div className="text-[11px] text-amber-600 dark:text-amber-400 font-mono font-bold">
+                        @ ₹{job.rate_per_unit}/piece
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="font-semibold text-slate-800 dark:text-slate-200">{job.group_name || 'Gang 1'}</div>
+                      <div className="text-[11px] text-slate-500">
+                        {job.worker_count} active workers (avg ₹{Math.round(job.wage_per_worker)}/ea)
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 font-mono">
+                      <div>{job.tray_count} trays × {job.pieces_per_tray}</div>
+                      <div className="text-[11px] text-slate-400">{job.gross_quantity} gross pcs</div>
+                    </td>
+                    <td className="px-4 py-3.5 font-mono text-rose-600 dark:text-rose-400 font-bold">
+                      -{job.total_wastage} pcs
+                      <div className="text-[10px] text-rose-400 font-normal">(-₹{Math.round(job.wastage_amount)})</div>
+                    </td>
+                    <td className="px-4 py-3.5 font-mono font-bold text-slate-900 dark:text-white text-sm">
+                      {job.quantity.toLocaleString()} pcs
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                      ₹{job.total_amount.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
                         <button
-                          onClick={() => handleDelete(job.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition"
-                          title="Delete production log"
+                          onClick={() => openEditModal(job)}
+                          className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition"
+                          title="Edit production log"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-3.5 h-3.5" />
                         </button>
-                      ) : (
-                        <span className="p-1.5 text-slate-300 dark:text-slate-700 cursor-not-allowed" title="Admin access required to delete">
-                          <Lock className="w-3.5 h-3.5" />
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {canDelete ? (
+                          <button
+                            onClick={() => handleDelete(job.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition"
+                            title="Delete production log"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <span className="p-1.5 text-slate-300 dark:text-slate-700 cursor-not-allowed" title="Admin access required to delete">
+                            <Lock className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {jobs.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     No production logs recorded yet
                   </td>
                 </tr>
@@ -315,7 +332,7 @@ export const Production: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Calculator className="w-4 h-4 text-amber-500" />
-                {editingJob ? 'Edit Production Log' : 'New Production & Labor Log'}
+                {editingJob ? 'Edit Work / Production Log' : 'New Work / Production Log'}
               </h3>
               <button onClick={() => setModalOpen(false)}>
                 <X className="w-5 h-5 text-slate-400 hover:text-slate-600" />
@@ -323,6 +340,34 @@ export const Production: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Work Description / Type Selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Work Description / Operation Type
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'Only Production', label: 'Only Production', color: 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200' },
+                    { id: 'Only Loading', label: 'Only Loading', color: 'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' },
+                    { id: 'Only Unloading', label: 'Only Unloading', color: 'border-purple-500 bg-purple-50 text-purple-800 dark:bg-purple-950/60 dark:text-purple-200' },
+                    { id: 'Loading / Unloading', label: 'Loading / Unloading', color: 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setJobType(item.id)}
+                      className={`px-3 py-2 rounded-xl text-xs font-semibold border transition text-center ${
+                        jobType === item.id
+                          ? `${item.color} ring-2 ring-offset-1 ring-amber-500 font-bold shadow-sm`
+                          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Date</label>

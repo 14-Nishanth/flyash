@@ -41,3 +41,15 @@ body {
 .glass-panel:hover {
   border-color: rgba(59, 130, 246, 0.4);
 }
+
+/* Remove number input spinner arrows & unwanted scroll spinners on all amount inputs */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+

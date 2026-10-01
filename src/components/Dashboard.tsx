@@ -392,11 +392,20 @@ export const Dashboard: React.FC = () => {
                 >
                   <div>
                     <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{mat}</span>
-                    <div className="text-xs text-slate-400">Unit: {rawStocks[mat].unit}</div>
+                    <div className="text-[11px] text-slate-400">
+                      Unit: {rawStocks[mat].unit}
+                      {rawStocks[mat].secondaryInfo && (
+                        <span className="ml-1 text-emerald-600 dark:text-emerald-400 font-semibold font-mono">
+                          {rawStocks[mat].secondaryInfo}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-lg font-bold font-mono text-slate-900 dark:text-white">
-                    {rawStocks[mat].quantity.toLocaleString()}{' '}
-                    <span className="text-xs text-slate-400 font-normal">{rawStocks[mat].unit}</span>
+                  <div className="text-right">
+                    <div className="text-lg font-bold font-mono text-slate-900 dark:text-white">
+                      {rawStocks[mat].quantity.toLocaleString()}{' '}
+                      <span className="text-xs text-slate-400 font-normal">{rawStocks[mat].unit}</span>
+                    </div>
                   </div>
                 </div>
               ))}
