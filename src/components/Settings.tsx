@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Sliders,
@@ -26,6 +26,12 @@ import {
   Volume2,
   Smartphone,
   Check,
+  ExternalLink,
+  Table,
+  Search,
+  Layers,
+  FileText,
+  Activity,
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 import { AppUser, UserRole, AlertSettings } from '../types';
@@ -93,6 +99,50 @@ export const Settings: React.FC = () => {
   const [dbChecking, setDbChecking] = useState(false);
   const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'idle'>('connected');
   const [dbCheckMsg, setDbCheckMsg] = useState('YES — Supabase PostgreSQL Cloud Database is Connected & Operational');
+
+  // Supabase Table Explorer State (Admin Access)
+  const [selectedDbTable, setSelectedDbTable] = useState('parties');
+  const [tableRows, setTableRows] = useState<any[]>([]);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [tableFetchError, setTableFetchError] = useState<string | null>(null);
+  const [tableSearchFilter, setTableSearchFilter] = useState('');
+  const [dbActiveTab, setDbActiveTab] = useState<'cards' | 'browser'>('cards');
+
+  const fetchTableRows = async (tableName: string) => {
+    setTableLoading(true);
+    setTableFetchError(null);
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setTableFetchError('Database client not initialized');
+      setTableLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select('*')
+        .limit(50);
+
+      if (error) {
+        setTableFetchError(error.message);
+        setTableRows([]);
+      } else {
+        setTableRows(data || []);
+      }
+    } catch (err: any) {
+      setTableFetchError(err?.message || 'Failed to query table');
+      setTableRows([]);
+    } finally {
+      setTableLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser?.role === 'admin' || currentUser?.role === 'owner') {
+      fetchTableRows(selectedDbTable);
+    }
+  }, [selectedDbTable, currentUser]);
 
   // Personal Password Change State
   const [myNewPassword, setMyNewPassword] = useState('');
@@ -809,24 +859,35 @@ export const Settings: React.FC = () => {
         </div>
       </form>
 
-      {/* CLOUD DATABASE CONNECTION STATUS */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-emerald-50 dark:bg-emerald-950/60 rounded-xl text-emerald-600 dark:text-emerald-400">
-              <Database className="w-5 h-5" />
+      {/* CLOUD DATABASE CONNECTION & LIVE TABLE INSPECTOR */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/60 rounded-xl text-emerald-600 dark:text-emerald-400">
+              <Database className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Supabase Cloud Database Connection
-              </h3>
-              <p className="text-xs text-slate-500">Encrypted Enterprise Cloud Synchronization</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Supabase Cloud Database & Tables
+                </h3>
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-full text-[10px] font-bold border border-emerald-300 dark:border-emerald-800">
+                  Project: laqpdlasfxearjtnnouu
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">PostgreSQL cloud storage with live table inspection & direct admin links</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 rounded-full text-xs font-bold border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Connected: YES
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
+              title="Open Supabase Table Editor in Cloud Console"
+            >
+              <ExternalLink className="w-3.5 h-3.5" /> Supabase Table Editor ↗
+            </a>
             <button
               onClick={testDatabaseConnection}
               disabled={dbChecking}
@@ -838,15 +899,233 @@ export const Settings: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+        {/* Health status banner */}
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{dbCheckMsg}</span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            All database endpoints, API keys, and connection credentials are permanently secured and protected internally. Data is directly stored and synchronized with Supabase PostgreSQL cloud backend.
-          </p>
+          <span className="text-[11px] text-slate-500">
+            PostgreSQL • SSL Encrypted • Realtime Sync Active
+          </span>
         </div>
+
+        {/* Tabs: Table Direct Links vs In-App Live Table Viewer */}
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
+          <button
+            onClick={() => setDbActiveTab('cards')}
+            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 ${
+              dbActiveTab === 'cards'
+                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <Layers className="w-4 h-4" /> 12 Cloud Tables & Direct Links
+          </button>
+          <button
+            onClick={() => {
+              setDbActiveTab('browser');
+              fetchTableRows(selectedDbTable);
+            }}
+            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 ${
+              dbActiveTab === 'browser'
+                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <Table className="w-4 h-4" /> In-App Live Data Browser
+          </button>
+        </div>
+
+        {/* TAB 1: 12 Cloud Table Direct Cards */}
+        {dbActiveTab === 'cards' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              { id: 'parties', name: 'parties', label: 'Parties & Ledger', count: parties.length, desc: 'Suppliers, Customers, Credit/Debit ledger balances' },
+              { id: 'expenses', name: 'expenses', label: 'Expenses & Purchases', count: expenses.length, desc: 'Operational bills, material invoices & due settlements' },
+              { id: 'party_adjustments', name: 'party_adjustments', label: 'Party Due Payments', count: 'Synced', desc: 'Manual payments & supplier balance reductions' },
+              { id: 'material_inward', name: 'material_inward', label: 'Material Inward', count: inwards.length, desc: 'Cement, Fly Ash, Quarry Dust, Admixture entries' },
+              { id: 'material_outward', name: 'material_outward', label: 'Material Outward', count: outwards.length, desc: 'Brick delivery challans & customer dispatches' },
+              { id: 'payments', name: 'payments', label: 'Payment Receipts', count: 'Synced', desc: 'Cash, UPI, NEFT collections and supplier payouts' },
+              { id: 'job_wage_entries', name: 'job_wage_entries', label: 'Production & Wages', count: jobs.length, desc: 'Shift brick output, batch counts & piece rates' },
+              { id: 'employees', name: 'employees', label: 'Employees & Laborers', count: employees.length, desc: 'Staff directory, wage rates & active status' },
+              { id: 'attendance', name: 'attendance', label: 'Daily Attendance', count: 'Synced', desc: 'Shift clock-ins, worker presence and daily logs' },
+              { id: 'app_users', name: 'app_users', label: 'App Users & Security', count: users.length, desc: 'System logins, credentials & RBAC role access' },
+              { id: 'worker_groups', name: 'worker_groups', label: 'Worker Groups', count: 'Synced', desc: 'Production gang leaders and team allocations' },
+              { id: 'product_rates', name: 'product_rates', label: 'Product Rates', count: 'Synced', desc: 'Brick selling prices and raw material rate masters' },
+            ].map((tbl) => (
+              <div
+                key={tbl.id}
+                className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/60 hover:border-emerald-400 dark:hover:border-emerald-600 transition flex flex-col justify-between gap-3"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Table className="w-3.5 h-3.5 text-emerald-600" /> {tbl.name}
+                    </span>
+                    <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-[10px] font-bold">
+                      {tbl.count} records
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mt-1">{tbl.label}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">{tbl.desc}</p>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDbTable(tbl.id);
+                      setDbActiveTab('browser');
+                      fetchTableRows(tbl.id);
+                    }}
+                    className="flex-1 py-1 px-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-lg text-[11px] font-semibold transition text-center"
+                  >
+                    View In App
+                  </button>
+                  <a
+                    href={`https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1 px-2 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 text-[11px] font-semibold flex items-center gap-1"
+                    title={`Open ${tbl.name} in Supabase Cloud Table Editor`}
+                  >
+                    Cloud ↗
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* TAB 2: Live In-App Data Browser */}
+        {dbActiveTab === 'browser' && (
+          <div className="space-y-4">
+            {/* Table Selector & Search */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Table:</span>
+                <select
+                  value={selectedDbTable}
+                  onChange={(e) => {
+                    setSelectedDbTable(e.target.value);
+                    fetchTableRows(e.target.value);
+                  }}
+                  className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="parties">parties (Parties & Ledgers)</option>
+                  <option value="expenses">expenses (Expenses & Invoices)</option>
+                  <option value="party_adjustments">party_adjustments (Due Payments)</option>
+                  <option value="material_inward">material_inward (Raw Materials)</option>
+                  <option value="material_outward">material_outward (Brick Dispatches)</option>
+                  <option value="payments">payments (Receipts)</option>
+                  <option value="job_wage_entries">job_wage_entries (Wages & Output)</option>
+                  <option value="employees">employees (Laborers & Staff)</option>
+                  <option value="attendance">attendance (Daily Shifts)</option>
+                  <option value="app_users">app_users (Accounts & Passwords)</option>
+                  <option value="worker_groups">worker_groups (Gangs)</option>
+                  <option value="product_rates">product_rates (Pricing)</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => fetchTableRows(selectedDbTable)}
+                  disabled={tableLoading}
+                  className="p-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 rounded-lg transition"
+                  title="Reload table records"
+                >
+                  <RefreshCw className={`w-4 h-4 ${tableLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={tableSearchFilter}
+                    onChange={(e) => setTableSearchFilter(e.target.value)}
+                    placeholder={`Search in ${selectedDbTable}...`}
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+                <a
+                  href={`https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0"
+                >
+                  <ExternalLink className="w-3 h-3" /> Cloud Editor ↗
+                </a>
+              </div>
+            </div>
+
+            {/* Error or Loading message */}
+            {tableFetchError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300">
+                ⚠️ Error querying <b>{selectedDbTable}</b>: {tableFetchError}
+              </div>
+            )}
+
+            {/* Table Display */}
+            {tableLoading ? (
+              <div className="p-12 text-center text-slate-500 text-xs flex flex-col items-center gap-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
+                <span>Fetching live records from Supabase PostgreSQL...</span>
+              </div>
+            ) : tableRows.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 text-xs border border-dashed border-slate-300 dark:border-slate-700 rounded-xl">
+                No records found in table <b>{selectedDbTable}</b> or table is currently empty.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Showing {tableRows.length} recent rows from <b>{selectedDbTable}</b></span>
+                  <span className="font-mono">Columns: {Object.keys(tableRows[0] || {}).length}</span>
+                </div>
+                <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl max-h-96">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold sticky top-0 uppercase tracking-wider text-[10px]">
+                      <tr>
+                        {Object.keys(tableRows[0] || {}).map((col) => (
+                          <th key={col} className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                      {tableRows
+                        .filter((row) => {
+                          if (!tableSearchFilter) return true;
+                          return JSON.stringify(row).toLowerCase().includes(tableSearchFilter.toLowerCase());
+                        })
+                        .map((row, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                            {Object.entries(row).map(([col, val]: [string, any]) => (
+                              <td key={col} className="px-3 py-2 text-slate-800 dark:text-slate-200 max-w-xs truncate">
+                                {val === null || val === undefined ? (
+                                  <span className="text-slate-400 italic">null</span>
+                                ) : typeof val === 'boolean' ? (
+                                  <span className={val ? 'text-emerald-600 font-bold' : 'text-rose-500 font-bold'}>
+                                    {val ? 'true' : 'false'}
+                                  </span>
+                                ) : typeof val === 'object' ? (
+                                  JSON.stringify(val)
+                                ) : (
+                                  String(val)
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* USER MANAGEMENT (Create and Edit logins for staff) */}

@@ -17,7 +17,9 @@ import {
   LogOut,
   UserCircle,
   TrendingUp,
-  Lock
+  Lock,
+  Database,
+  ExternalLink
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 
@@ -106,6 +108,21 @@ export const Navbar: React.FC = () => {
             >
               {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
             </button>
+
+            {/* Admin Supabase Database Direct Link */}
+            {(currentUser?.role === 'admin' || currentUser?.role === 'owner') && (
+              <a
+                href="https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold transition shadow-sm"
+                title="Open Supabase Cloud Database Tables (Admin Access)"
+              >
+                <Database className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Supabase DB</span>
+                <ExternalLink className="w-3 h-3 opacity-70" />
+              </a>
+            )}
 
             {/* Settings button */}
             <button
