@@ -4,6 +4,7 @@ import {
   MaterialInward,
   MaterialOutward,
   Payment,
+  PartyAdjustment,
   JobWageEntry,
   Employee,
   AttendanceRecord,
@@ -42,6 +43,7 @@ interface AppContextType {
   inwards: MaterialInward[];
   outwards: MaterialOutward[];
   payments: Payment[];
+  partyAdjustments: PartyAdjustment[];
   jobs: JobWageEntry[];
   employees: Employee[];
   attendance: AttendanceRecord[];
@@ -55,6 +57,10 @@ interface AppContextType {
   addParty: (party: Omit<Party, 'id' | 'created_at'>) => Promise<void>;
   updateParty: (id: string, party: Partial<Party>) => Promise<void>;
   deleteParty: (id: string) => Promise<boolean>;
+  // Party Adjustments / Vouchers CRUD
+  addPartyAdjustment: (adj: Omit<PartyAdjustment, 'id' | 'created_at'>) => Promise<void>;
+  updatePartyAdjustment: (id: string, adj: Partial<PartyAdjustment>) => Promise<void>;
+  deletePartyAdjustment: (id: string) => Promise<boolean>;
   // Inward CRUD
   addInward: (inward: Omit<MaterialInward, 'id' | 'created_at'>) => Promise<void>;
   updateInward: (id: string, inward: Partial<MaterialInward>) => Promise<void>;
@@ -307,11 +313,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('flyash_theme') as 'dark' | 'light') || 'light');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
-  // Authentication Session
-  const [currentUser, setCurrentUser] = useState<UserSession | null>(() => {
-    const saved = localStorage.getItem('flyash_user_session');
-    return saved ? JSON.parse(saved) : null;
-  });
+  // Authentication Session - Requires login on every open/load per user preference
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
 
   // User Accounts
   const [users, setUsers] = useState<AppUser[]>(() => {
@@ -336,6 +339,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [payments, setPayments] = useState<Payment[]>(() => {
     const saved = localStorage.getItem('flyash_payments');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [partyAdjustments, setPartyAdjustments] = useState<PartyAdjustment[]>(() => {
+    const saved = localStorage.getItem('flyash_party_adjustments');
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -480,6 +488,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('flyash_payments', JSON.stringify(payments));
   }, [payments]);
   useEffect(() => {
+    localStorage.setItem('flyash_party_adjustments', JSON.stringify(partyAdjustments));
+  }, [partyAdjustments]);
+  useEffect(() => {
     localStorage.setItem('flyash_jobs', JSON.stringify(jobs));
   }, [jobs]);
   useEffect(() => {
@@ -546,6 +557,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const { data: payData } = await supabase!.from('payments').select('*');
         if (payData && payData.length > 0) setPayments(payData);
+
+        const { data: adjData } = await supabase!.from('party_adjustments').select('*');
+        if (adjData && adjData.length > 0) setPartyAdjustments(adjData);
 
         const { data: jobData } = await supabase!.from('job_wage_entries').select('*');
         if (jobData && jobData.length > 0) setJobs(jobData);
@@ -999,6 +1013,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
+  // --- PARTY ADJUSTMENTS / CREDIT & DEBIT VOUCHERS CRUD ---
+  const addPartyAdjustment = async (adj: Omit<PartyAdjustment, 'id' | 'created_at'>) => {
+    const party = parties.find((p) => p.id === adj.party_id);
+    const newAdj: PartyAdjustment = {
+      ...adj,
+      party_name: party?.name || adj.party_name || '',
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      created_at: new Date().toISOString(),
+    };
+    setPartyAdjustments((prev) => [newAdj, ...prev]);
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('party_adjustments').insert(newAdj);
+      } catch (e) {
+        console.warn('Supabase party adjustment insert sync:', e);
+      }
+    }
+  };
+
+  const updatePartyAdjustment = async (id: string, updated: Partial<PartyAdjustment>) => {
+    if (updated.party_id) {
+      const party = parties.find((p) => p.id === updated.party_id);
+      if (party) updated.party_name = party.name;
+    }
+    setPartyAdjustments((prev) => prev.map((a) => (a.id === id ? { ...a, ...updated } : a)));
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('party_adjustments').update(updated).eq('id', id);
+      } catch (e) {
+        console.warn('Supabase party adjustment update sync:', e);
+      }
+    }
+  };
+
+  const deletePartyAdjustment = async (id: string): Promise<boolean> => {
+    if (!canDelete) {
+      alert('Access Denied: Only Administrator or Owner can delete vouchers.');
+      return false;
+    }
+    setPartyAdjustments((prev) => prev.filter((a) => a.id !== id));
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('party_adjustments').delete().eq('id', id);
+      } catch (e) {
+        console.warn('Supabase party adjustment delete sync:', e);
+      }
+    }
+    return true;
+  };
+
   // --- PRODUCTION / JOBS CRUD ---
   const addJob = async (job: Omit<JobWageEntry, 'id' | 'created_at'>) => {
     const newJob: JobWageEntry = {
@@ -1095,20 +1162,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // --- EXPENSES CRUD ---
   const addExpense = async (expense: Omit<Expense, 'id' | 'created_at'>) => {
+    let partyName = expense.party_name;
+    let paidTo = expense.paid_to;
+    if (expense.party_id) {
+      const party = parties.find((p) => p.id === expense.party_id);
+      if (party) {
+        partyName = party.name;
+        if (!paidTo) paidTo = party.name;
+      }
+    }
     const newExpense: Expense = {
       ...expense,
+      paid_to: paidTo,
+      party_name: partyName,
       id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
       created_at: new Date().toISOString(),
     };
     setExpenses((prev) => [newExpense, ...prev]);
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('expenses').insert(newExpense);
+    if (supabase) {
+      try {
+        await supabase.from('expenses').insert(newExpense);
+      } catch (e) {
+        console.warn('Supabase expense insert sync:', e);
+      }
+    }
   };
 
   const updateExpense = async (id: string, updated: Partial<Expense>) => {
+    if (updated.party_id) {
+      const party = parties.find((p) => p.id === updated.party_id);
+      if (party) {
+        updated.party_name = party.name;
+        if (!updated.paid_to) updated.paid_to = party.name;
+      }
+    }
     setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('expenses').update(updated).eq('id', id);
+    if (supabase) {
+      try {
+        await supabase.from('expenses').update(updated).eq('id', id);
+      } catch (e) {
+        console.warn('Supabase expense update sync:', e);
+      }
+    }
   };
 
   const deleteExpense = async (id: string): Promise<boolean> => {
@@ -1126,10 +1223,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSettings(newSettings);
   };
 
-  // Ledger Calculations
+  // Ledger Calculations: Credit = Party needs to pay me (Receivable), Debit = I need to pay party (Payable)
   const calculatePartyBalance = (partyId: string): number => {
     const party = parties.find((p) => p.id === partyId);
     if (!party) return 0;
+
+    let opBal = party.opening_balance || 0;
+    // If opening balance was set as debit (I need to pay), make it negative; if credit (party needs to pay me), make it positive
+    if (party.opening_balance_type === 'debit') {
+      opBal = -opBal;
+    }
 
     const totalOutward = outwards
       .filter((m) => m.party_id === partyId)
@@ -1147,7 +1250,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .filter((p) => p.party_id === partyId && p.payment_type === 'paid')
       .reduce((sum, item) => sum + item.amount, 0);
 
-    return (party.opening_balance || 0) + totalOutward - totalInward - received + paid;
+    const adjCredit = partyAdjustments
+      .filter((a) => a.party_id === partyId && a.voucher_type === 'credit')
+      .reduce((sum, a) => sum + (a.amount || 0), 0);
+
+    const adjDebit = partyAdjustments
+      .filter((a) => a.party_id === partyId && a.voucher_type === 'debit')
+      .reduce((sum, a) => sum + (a.amount || 0), 0);
+
+    // Supplier payments logged from Expenses (reduces what I need to pay to supplier)
+    const partyPaidExpenses = expenses
+      .filter(
+        (e) =>
+          e.party_id === partyId &&
+          (e.expense_type === 'supplier_payment' ||
+            e.category === 'Supplier Due Payment' ||
+            e.category.includes('Supplier Due Payment') ||
+            e.category.includes('Outstanding Settlement'))
+      )
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+
+    // Unpaid material purchases or expenses (increases what I need to pay / Debit)
+    const unpaidExpenses = expenses
+      .filter(
+        (e) =>
+          e.party_id === partyId &&
+          e.expense_type !== 'supplier_payment' &&
+          !e.category.includes('Supplier Due Payment') &&
+          !e.category.includes('Outstanding Settlement') &&
+          (e.payment_status === 'unpaid' || e.payment_status === 'partial' || e.is_paid === false || e.payment_mode === 'credit')
+      )
+      .reduce((sum, e) => {
+        if (e.payment_status === 'partial' && e.due_amount !== undefined) {
+          return sum + e.due_amount;
+        }
+        return sum + (e.amount || 0);
+      }, 0);
+
+    // +Credit increases party's due to me (party needs to pay me)
+    // -Debit increases what I need to pay party
+    return opBal + totalOutward - totalInward - unpaidExpenses - received + (paid + partyPaidExpenses) + adjCredit - adjDebit;
   };
 
   // Accurate Raw Material Stock (Only Mentioned / User Recorded)
@@ -1230,6 +1372,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         inwards,
         outwards,
         payments,
+        partyAdjustments,
         jobs,
         employees,
         attendance,
@@ -1242,6 +1385,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addParty,
         updateParty,
         deleteParty,
+        addPartyAdjustment,
+        updatePartyAdjustment,
+        deletePartyAdjustment,
         addInward,
         updateInward,
         deleteInward,

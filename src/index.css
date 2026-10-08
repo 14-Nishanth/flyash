@@ -19,11 +19,50 @@
   }
 }
 
-body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+/* Locked App-like Viewport & Touch Optimization */
+html, body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: var(--bg-page);
   color: var(--text-primary);
   min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  
+  /* Prevent bounce & unwanted pinch zooming */
+  touch-action: manipulation;
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Prevent accidental text selection on UI controls while allowing in data fields */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input, textarea, [contenteditable="true"], table td, table th, .selectable {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Prevent mobile browser zoom on input focus by guaranteeing 16px font size on touch screens */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  input[type="password"],
+  input[type="email"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Fast responsive buttons with no double-tap zoom delay */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .font-mono {
@@ -42,7 +81,7 @@ body {
   border-color: rgba(59, 130, 246, 0.4);
 }
 
-/* Remove number input spinner arrows & unwanted scroll spinners on all amount inputs */
+/* Remove number input spinner arrows & unwanted scroll spinners */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -52,4 +91,3 @@ input[type=number] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
-

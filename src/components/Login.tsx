@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Boxes, Lock, User, ArrowRight, Eye, EyeOff, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { Boxes, Lock, User, ArrowRight, Eye, EyeOff, ShieldCheck, Sun, Moon, Database, ExternalLink } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login, theme, toggleTheme } = useApp();
@@ -158,9 +158,23 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 pt-1">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Permanent Supabase Cloud Sync Active</span>
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center gap-2">
+          <a
+            href="https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2 px-3 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition hover:border-emerald-500/50"
+            title="Open Supabase Cloud Database Table Editor in a new tab"
+          >
+            <Database className="w-3.5 h-3.5 text-emerald-600" />
+            <span>View Supabase Cloud Database Tables</span>
+            <ExternalLink className="w-3 h-3 text-slate-400" />
+          </a>
+
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Connected to Cloud Database: <strong>laqpdlasfxearjtnnouu</strong></span>
+          </div>
         </div>
       </div>
     </div>

@@ -1,15 +1,19 @@
-export type PaymentMode = 'cash' | 'upi' | 'bank' | 'cheque';
+export type PaymentMode = 'cash' | 'upi' | 'bank' | 'cheque' | 'journal' | 'credit';
 export type PaymentType = 'received' | 'paid';
 export type AttendanceStatus = 'present' | 'absent' | 'half-day';
+export type VoucherType = 'debit' | 'credit';
 
 export interface Party {
   id: string;
   name: string;
-  party_type: 'customer' | 'supplier' | 'both';
+  party_type: 'customer' | 'supplier' | 'both' | 'transporter';
   phone?: string;
   address?: string;
   gstin?: string;
   opening_balance: number;
+  opening_balance_type?: 'debit' | 'credit'; // debit = receivable (Dr), credit = payable (Cr)
+  credit_limit?: number;
+  credit_period_days?: number;
   created_at: string;
 }
 
@@ -59,11 +63,14 @@ export interface Payment {
 export interface PartyAdjustment {
   id: string;
   party_id: string;
+  party_name?: string;
   date: string;
-  adjustment_type: 'past_unpaid_due' | 'past_advance' | 'discount_waiver';
+  voucher_type: VoucherType; // 'debit' (Dr) or 'credit' (Cr)
+  category: string; // Specific Debit/Credit Type
   amount: number;
-  reason: string;
+  payment_mode?: PaymentMode;
   reference_no?: string;
+  notes?: string;
   created_at: string;
 }
 
@@ -121,14 +128,28 @@ export interface AttendanceRecord {
   notes?: string;
 }
 
+export type PaymentStatus = 'paid' | 'unpaid' | 'partial';
+export type ExpenseType = 'general_expense' | 'material_purchase' | 'supplier_payment';
+
 export interface Expense {
   id: string;
   date: string;
   category: string;
+  expense_type?: ExpenseType;
   title: string;
   amount: number;
+  paid_amount?: number;
+  due_amount?: number;
   payment_mode: PaymentMode;
+  payment_status?: PaymentStatus;
+  is_paid?: boolean;
   paid_to?: string;
+  party_id?: string;
+  party_name?: string;
+  material_type?: string;
+  quantity?: number;
+  unit?: string;
+  rate?: number;
   reference_no?: string;
   notes?: string;
   created_at: string;
