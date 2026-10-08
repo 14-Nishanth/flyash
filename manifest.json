@@ -1,0 +1,18 @@
+{
+  "name": "Sri Balamurugan Fly Ash ERP",
+  "short_name": "FlyAsh ERP",
+  "description": "Enterprise Management System for Sri Balamurugan Fly Ash Bricks",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#030712",
+  "theme_color": "#030712",
+  "icons": [
+    {
+      "src": "vite.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
