@@ -57,9 +57,14 @@ export const Settings: React.FC = () => {
     parties,
     inwards,
     outwards,
+    payments,
+    partyAdjustments,
     jobs,
     expenses,
     employees,
+    attendance,
+    workerGroups,
+    productRates,
   } = useApp();
 
   const [ownerName, setOwnerName] = useState(settings.owner_name || 'Plant Owner');
@@ -369,22 +374,53 @@ export const Settings: React.FC = () => {
   };
 
   const exportDataJSON = () => {
+    // Export the records currently loaded in this browser. Never include local login
+    // passwords or notification-provider secrets in a portable backup.
+    const safeSettings = {
+      ...settings,
+      telegram_bot_token: '',
+      telegram_chat_id: '',
+    };
     const data = {
+      backup_version: 2,
       exported_at: new Date().toISOString(),
       plant: 'Fly Ash Brick & Block Plant Management System',
+      source: 'current-device-app-state',
       parties,
       inwards,
       outwards,
+      payments,
+      party_adjustments: partyAdjustments,
       jobs,
       expenses,
       employees,
+      attendance,
+      worker_groups: workerGroups,
+      product_rates: productRates,
+      settings: safeSettings,
+      record_counts: {
+        parties: parties.length,
+        inwards: inwards.length,
+        outwards: outwards.length,
+        payments: payments.length,
+        party_adjustments: partyAdjustments.length,
+        jobs: jobs.length,
+        expenses: expenses.length,
+        employees: employees.length,
+        attendance: attendance.length,
+        worker_groups: workerGroups.length,
+        product_rates: productRates.length,
+      },
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `flyash_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
     a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const todayCount = getTodayAlertCount();
