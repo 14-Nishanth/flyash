@@ -1,34 +1,38 @@
 # FlyAsh repair status
 
-## Scope of this branch
+## Implemented on `repair/cloud-sync-v2`
 
-This branch is a non-production safety pass. It does not modify the production Supabase schema or data and does not deploy the website.
+- Replaced browser-only demo login with Supabase Auth email/password sign-in. Access requires server-controlled `app_metadata.flyash_access=true` and a role.
+- Added the shared `public.app_records` store for all business collections, app settings, and soft-delete markers.
+- Added row-level security for authenticated access, operator editing, and admin/owner-only soft deletion.
+- Added Realtime publication membership and conflict-safe initial copies from existing plural tables.
+- Routed app business CRUD operations through the shared record store so edits/deletes can sync across devices independent of inconsistent legacy table ID types.
+- Added a local retry queue for failed cloud writes and visible sync errors/last-sync time.
+- Kept deleted record payloads in cloud tombstones for recovery; deletes no longer erase the stored payload.
+- Added a Supabase Edge Function for admin/owner user management. It validates the caller, uses the service-role key only server-side, and protects the last administrator.
+- Removed hardcoded demo passwords from the login UI and README.
+- Added the cloud sync setup guide and CI build verification.
 
-Changes currently included:
-- Expanded the JSON backup to include all business collections currently held in app state: parties, inward/outward material, payments, party adjustments, production jobs, expenses, employees, attendance, worker groups, product rates, and settings.
-- Excluded local login passwords and Telegram bot secrets from exported backups.
-- Added backup metadata and record counts; clarified that the export is a snapshot of the current device's loaded app state, not a server-side database dump.
-- Added a pull-request/push verification workflow using Node.js 22, `npm ci`, and `npm run build`.
-- Changed cloud sync reads to throw/report query errors instead of silently treating failed reads as a successful sync.
+## Live changes verified
 
-## Production blockers found during audit
+- The additive `app_records` migration has been applied to Supabase project `laqpdlasfxearjtnnouu`.
+- Realtime publication membership is enabled for `public.app_records`.
+- The new table has authenticated-only policies gated by server-controlled app metadata.
+- The migration copied 8 existing party records and 4 existing employee records into `app_records`.
+- The original `parties` and `employees` source tables still contain 8 and 4 rows respectively. No table was dropped or truncated.
+- The `manage-users` Edge Function is deployed with JWT verification enabled.
+- CI build passed on the branch before the most recent Settings-table-browser update; a fresh run is pending.
 
-**Do not consider the production app secure yet.**
+## Required before the new client can be deployed safely
 
-1. Several production tables have RLS policies granting `ALL` to `public` with `USING (true)`. That makes the data API publicly readable/writable for those tables when grants permit it.
-2. The frontend contains local/demo credentials and authenticates some users entirely in browser code. Client-side role checks are not a security boundary.
-3. The Supabase project currently has no Supabase Auth users, while the application relies on local custom accounts. Immediately replacing the public policies with authenticated-only policies would break cloud access until a real Auth account and role provisioning are configured.
-4. Some application modules write to `worker_groups`, `product_rates`, and `app_users`, while those tables were not present in the inspected production schema. The database also contains legacy singular tables alongside newer plural tables.
-5. Current-device localStorage data is not the same thing as cloud data. Export the backup from each device before any migration. This export intentionally does not include credentials or provider tokens.
+1. In Supabase Dashboard → Authentication → Users, create the first company account.
+2. Set that account's **app metadata** to:
+   ```json
+   { "role": "admin", "flyash_access": true }
+   ```
+   Do not place these authorization claims in user-editable user metadata.
+3. After CI passes, merge/deploy the new client, sign in, and run a live two-device create/edit/delete smoke test. The current Supabase project has no Auth users, so a real two-device authenticated sync test cannot yet be completed.
+4. The existing legacy tables still have older public RLS policies. They are preserved for compatibility and require a coordinated follow-up cutover after the new client is active; this branch does not claim those legacy tables are now secure.
+5. Export local backups from each device before first sign-in. The migration imports the existing server tables; device-specific localStorage records are merged on the first authenticated sync.
 
-## Required next security stage
-
-Before production rollout:
-1. Provision a real Supabase Auth administrator account and set a server-controlled role claim (never use user-editable user metadata for authorization).
-2. Migrate login and user administration away from browser-stored passwords to Supabase Auth / server-side administrative operations.
-3. Add and test explicit RLS policies for each application table: authenticated read/write, role-gated deletes, and admin-only user management. Do not use public `USING (true)` policies.
-4. Reconcile legacy and current table names/foreign keys with additive migrations only; do not drop or truncate tables.
-5. Run anonymous-vs-authenticated database policy tests, build checks, and a live create/read/update/delete smoke test with the new administrator account.
-6. Only then remove the public policies and deploy the authenticated client.
-
-No production database policies, tables, or records were changed by this branch.
+See [CLOUD_SYNC_SETUP.md](CLOUD_SYNC_SETUP.md) for the exact rollout steps.
