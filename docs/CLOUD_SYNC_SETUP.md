@@ -14,8 +14,8 @@ The new shared data path is additive: it uses `public.app_records` and leaves ex
    }
    ```
    Save the change, then sign in to FlyAsh using that email and password. Only users with this server-controlled metadata can read or write shared records.
-4. Apply `supabase/migrations/20261013000000_app_records.sql` to the production project after confirming a current database backup exists. It creates the shared store, enables authenticated RLS, enables Realtime, and copies existing rows using `ON CONFLICT DO NOTHING`. It does not drop or truncate any table.
-5. Deploy `supabase/functions/manage-users/index.ts` as the `manage-users` Edge Function with JWT verification enabled. Supabase's standard `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` runtime secrets must be available; never put the service-role key in frontend code.
+4. **For the current Supabase project, this migration has already been applied.** Verification confirmed `app_records` contains the 8 existing parties and 4 existing employees, the original source tables still contain those same rows, and Realtime publication membership is enabled. For another environment only, take a current database backup and then apply `supabase/migrations/20261013000000_app_records.sql`; it is additive and uses `ON CONFLICT DO NOTHING`.
+5. **The `manage-users` Edge Function is already deployed** with JWT verification enabled. Supabase's standard `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` runtime secrets are used server-side; never put the service-role key in frontend code.
 6. Merge/deploy the app only after CI passes. Sign in on a second device with an authorized account and test creating, editing, and deleting a harmless test record. Verify the change appears on both devices before using it for real business transactions.
 
 ## How synchronization works
