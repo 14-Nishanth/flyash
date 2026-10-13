@@ -708,6 +708,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally { syncInFlightRef.current = false; setIsSyncing(false); }
   };
 
+  const syncWithCloudRef = useRef(syncWithCloud);
+  syncWithCloudRef.current = syncWithCloud;
+
   useEffect(() => {
     const supabase = getSupabaseClient(); if (!supabase) return;
     let active = true;
@@ -718,7 +721,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (user && hasCloudAccess(user)) {
         setCurrentUser({ id: user.id, username: user.email || '', name: user.user_metadata?.name || user.email || 'Plant Staff', role: getCloudRole(user), phone: user.user_metadata?.phone });
         void refreshUsers(user);
-        void syncWithCloud();
+        void syncWithCloudRef.current();
       } else setCurrentUser(null);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -727,7 +730,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (user && hasCloudAccess(user)) {
         setCurrentUser({ id: user.id, username: user.email || '', name: user.user_metadata?.name || user.email || 'Plant Staff', role: getCloudRole(user), phone: user.user_metadata?.phone });
         void refreshUsers(user);
-        window.setTimeout(() => { if (active) void syncWithCloud(); }, 0);
+        window.setTimeout(() => { if (active) void syncWithCloudRef.current(); }, 0);
       } else setCurrentUser(null);
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
@@ -738,15 +741,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let channel: any = null;
     try {
       channel = supabase.channel('flyash-app-records-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_records' }, () => { void syncWithCloud(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_records' }, () => { void syncWithCloudRef.current(); })
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setSyncError('Realtime is unavailable. Automatic refresh will retry; check the Supabase Realtime publication if this persists.');
         });
     } catch (error) { setSyncError(error instanceof Error ? error.message : 'Realtime subscription could not start.'); }
-    const focus = () => { void syncWithCloud(); };
-    const visibility = () => { if (document.visibilityState === 'visible') void syncWithCloud(); };
+    const focus = () => { void syncWithCloudRef.current(); };
+    const visibility = () => { if (document.visibilityState === 'visible') void syncWithCloudRef.current(); };
     window.addEventListener('focus', focus); document.addEventListener('visibilitychange', visibility);
-    const interval = window.setInterval(() => { void syncWithCloud(); }, 30000);
+    const interval = window.setInterval(() => { void syncWithCloudRef.current(); }, 30000);
     return () => {
       if (channel) void supabase.removeChannel(channel);
       window.removeEventListener('focus', focus); document.removeEventListener('visibilitychange', visibility); window.clearInterval(interval);
