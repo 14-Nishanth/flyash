@@ -19,20 +19,72 @@
   }
 }
 
-/* Locked App-like Viewport & Touch Optimization */
-html, body {
+/* Fixed Display Shell: Locks outer screen against zoom/shift while enabling inner page scrolling */
+*, *::before, *::after {
+  touch-action: pan-x pan-y;
+  box-sizing: border-box;
+}
+
+html, body, #root {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: var(--bg-page);
   color: var(--text-primary);
-  min-height: 100vh;
+  width: 100%;
+  height: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
   
-  /* Prevent bounce & unwanted pinch zooming */
-  touch-action: manipulation;
-  overscroll-behavior-y: none;
+  /* Prevent bounce & unwanted pinch zooming on all devices */
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+/* Smooth scrollable page container */
+.app-scroll-container {
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+
+/* Visible, easy-to-use scrollbars on all devices */
+.app-scroll-container::-webkit-scrollbar,
+aside::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.app-scroll-container::-webkit-scrollbar-track,
+aside::-webkit-scrollbar-track,
+.overflow-x-auto::-webkit-scrollbar-track,
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 9999px;
+}
+
+.app-scroll-container::-webkit-scrollbar-thumb,
+aside::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: rgba(217, 119, 6, 0.55);
+  border-radius: 9999px;
+}
+
+.app-scroll-container::-webkit-scrollbar-thumb:hover,
+aside::-webkit-scrollbar-thumb:hover,
+.overflow-x-auto::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 119, 6, 0.85);
 }
 
 /* Prevent accidental text selection on UI controls while allowing in data fields */
@@ -41,27 +93,23 @@ body {
   -webkit-user-select: none;
 }
 
-input, textarea, [contenteditable="true"], table td, table th, .selectable {
+input, textarea, select, [contenteditable="true"], table td, table th, .selectable {
   user-select: text !important;
   -webkit-user-select: text !important;
 }
 
-/* Prevent mobile browser zoom on input focus by guaranteeing 16px font size on touch screens */
-@media (max-width: 768px) {
-  input[type="text"],
-  input[type="number"],
-  input[type="date"],
-  input[type="password"],
-  input[type="email"],
+/* Prevent mobile/tablet browser auto-zoom when entering data in ANY input/select/textarea field */
+@media (hover: none), (pointer: coarse), (max-width: 1024px) {
+  input,
   select,
   textarea {
     font-size: 16px !important;
   }
 }
 
-/* Fast responsive buttons with no double-tap zoom delay */
+/* Fast responsive buttons & inputs with no double-tap zoom delay */
 button, a, input, select, textarea {
-  touch-action: manipulation;
+  touch-action: pan-x pan-y !important;
   -webkit-tap-highlight-color: transparent;
 }
 
