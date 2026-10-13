@@ -40,51 +40,37 @@ export const Analytics: React.FC = () => {
   const [selectedPeriodType, setSelectedPeriodType] = useState<'month' | 'week' | 'custom'>('week');
   const [selectedWeek, setSelectedWeek] = useState<number>(1); // 1, 2, 3, 4, 5
   const [customFrom, setCustomFrom] = useState(
-    new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
   );
-  const [customTo, setCustomTo] = useState(now.toISOString().split('T')[0]);
+  const [customTo, setCustomTo] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
 
   // Selected Unit Cost Product
   const [selectedCalcProduct, setSelectedCalcProduct] = useState(productRates[0]?.name || 'Fly Ash Brick 9x4x3');
 
-  // Compute date boundaries based on view type
+  // Format local calendar dates without UTC conversion (toISOString can shift dates in India).
+  const toDateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+  // Compute date boundaries using real Monday-Sunday calendar weeks.
   const { startDate, endDate, periodLabel } = useMemo(() => {
     const [yearStr, monthStr] = selectedMonth.split('-');
     const year = parseInt(yearStr, 10);
-    const month = parseInt(monthStr, 10) - 1; // 0-indexed
+    const month = parseInt(monthStr, 10);
+    const firstOfMonth = new Date(year, month - 1, 1);
+    const lastOfMonth = new Date(year, month, 0);
+    const firstWeekStart = new Date(firstOfMonth);
+    firstWeekStart.setDate(firstWeekStart.getDate() - ((firstWeekStart.getDay() + 6) % 7));
+    const weekStart = new Date(firstWeekStart);
+    weekStart.setDate(weekStart.getDate() + (selectedWeek - 1) * 7);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
 
     if (selectedPeriodType === 'month') {
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      return {
-        startDate: firstDay.toISOString().split('T')[0],
-        endDate: lastDay.toISOString().split('T')[0],
-        periodLabel: firstDay.toLocaleString('default', { month: 'long', year: 'numeric' }),
-      };
+      return { startDate: toDateKey(firstOfMonth), endDate: toDateKey(lastOfMonth), periodLabel: firstOfMonth.toLocaleString('default', { month: 'long', year: 'numeric' }) };
     }
-
     if (selectedPeriodType === 'week') {
-      // Divide month into 7-day chunks (Week 1: 1-7, Week 2: 8-14, Week 3: 15-21, Week 4: 22-28, Week 5: 29-end)
-      const startDay = (selectedWeek - 1) * 7 + 1;
-      const lastDateOfMonth = new Date(year, month + 1, 0).getDate();
-      const endDay = Math.min(selectedWeek * 7, lastDateOfMonth);
-
-      const firstDate = new Date(year, month, startDay);
-      const lastDate = new Date(year, month, endDay);
-
-      return {
-        startDate: firstDate.toISOString().split('T')[0],
-        endDate: lastDate.toISOString().split('T')[0],
-        periodLabel: `Week ${selectedWeek} (${firstDate.getDate()} - ${lastDate.getDate()} ${firstDate.toLocaleString('default', { month: 'short', year: 'numeric' })})`,
-      };
+      return { startDate: toDateKey(weekStart), endDate: toDateKey(weekEnd), periodLabel: `Week ${selectedWeek} (${toDateKey(weekStart)} to ${toDateKey(weekEnd)})` };
     }
-
-    // Custom
-    return {
-      startDate: customFrom,
-      endDate: customTo,
-      periodLabel: `${customFrom} to ${customTo}`,
-    };
+    return { startDate: customFrom, endDate: customTo, periodLabel: `${customFrom} to ${customTo}` };
   }, [selectedMonth, selectedPeriodType, selectedWeek, customFrom, customTo]);
 
   // Filter Data within Range
@@ -119,25 +105,28 @@ export const Analytics: React.FC = () => {
     partyLedgers.push({ party: p, balance: bal });
   });
 
-  // Week-by-Week Table Generator for the selected month
+  // Week-by-week table uses full Monday-Sunday date ranges.
   const weekBreakdown = useMemo(() => {
     const [yearStr, monthStr] = selectedMonth.split('-');
     const year = parseInt(yearStr, 10);
     const month = parseInt(monthStr, 10) - 1;
-    const lastDate = new Date(year, month + 1, 0).getDate();
-
+    const firstOfMonth = new Date(year, month, 1);
+    const lastOfMonth = new Date(year, month + 1, 0);
+    const firstWeekStart = new Date(firstOfMonth);
+    firstWeekStart.setDate(firstWeekStart.getDate() - ((firstWeekStart.getDay() + 6) % 7));
     const weeks = [];
     let weekNum = 1;
-    for (let day = 1; day <= lastDate; day += 7) {
-      const startD = new Date(year, month, day).toISOString().split('T')[0];
-      const endDayNum = Math.min(day + 6, lastDate);
-      const endD = new Date(year, month, endDayNum).toISOString().split('T')[0];
+    for (let start = new Date(firstWeekStart); start <= lastOfMonth; start.setDate(start.getDate() + 7)) {
+      const weekStart = new Date(start);
+      const weekEnd = new Date(start);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const startD = toDateKey(weekStart);
+      const endD = toDateKey(weekEnd);
 
       const wOutwards = outwards.filter((o) => o.date >= startD && o.date <= endD);
       const wInwards = inwards.filter((i) => i.date >= startD && i.date <= endD);
       const wJobs = jobs.filter((j) => j.date >= startD && j.date <= endD);
       const wExpenses = expenses.filter((e) => e.date >= startD && e.date <= endD);
-
       const wTurnover = wOutwards.reduce((sum, o) => sum + o.amount, 0);
       const wMatCost = wInwards.reduce((sum, i) => sum + i.amount, 0);
       const wLabor = wJobs.reduce((sum, j) => sum + j.total_amount, 0);
@@ -145,19 +134,7 @@ export const Analytics: React.FC = () => {
       const wProduced = wJobs.reduce((sum, j) => sum + j.quantity, 0);
       const wDispatched = wOutwards.reduce((sum, o) => sum + o.quantity_mt, 0);
       const wNetSurplus = wTurnover - (wMatCost + wLabor + wOps);
-
-      weeks.push({
-        weekNumber: weekNum,
-        startDate: startD,
-        endDate: endD,
-        turnover: wTurnover,
-        materialCost: wMatCost,
-        laborCost: wLabor,
-        expenses: wOps,
-        produced: wProduced,
-        dispatched: wDispatched,
-        netSurplus: wNetSurplus,
-      });
+      weeks.push({ weekNumber: weekNum, startDate: startD, endDate: endD, turnover: wTurnover, materialCost: wMatCost, laborCost: wLabor, expenses: wOps, produced: wProduced, dispatched: wDispatched, netSurplus: wNetSurplus });
       weekNum++;
     }
     return weeks;
@@ -268,11 +245,11 @@ export const Analytics: React.FC = () => {
               onChange={(e) => setSelectedWeek(parseInt(e.target.value, 10))}
               className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
             >
-              <option value={1}>Week 1 (Days 1 - 7)</option>
-              <option value={2}>Week 2 (Days 8 - 14)</option>
-              <option value={3}>Week 3 (Days 15 - 21)</option>
-              <option value={4}>Week 4 (Days 22 - 28)</option>
-              <option value={5}>Week 5 (Days 29 - End)</option>
+              {weekBreakdown.map((week) => (
+                <option key={week.weekNumber} value={week.weekNumber}>
+                  Week {week.weekNumber} ({week.startDate} to {week.endDate})
+                </option>
+              ))}
             </select>
           )}
 
