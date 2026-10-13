@@ -1372,12 +1372,13 @@ return true;
       .filter((m) => m.party_id === partyId)
       .reduce((sum, item) => sum + item.amount, 0);
 
+    // Voucher records are stored separately in partyAdjustments and must not be counted twice.
     const received = payments
-      .filter((p) => p.party_id === partyId && p.payment_type === 'received')
+      .filter((p) => p.party_id === partyId && p.payment_type === 'received' && p.mode !== 'adjustment')
       .reduce((sum, item) => sum + item.amount, 0);
 
     const paid = payments
-      .filter((p) => p.party_id === partyId && p.payment_type === 'paid')
+      .filter((p) => p.party_id === partyId && p.payment_type === 'paid' && p.mode !== 'adjustment')
       .reduce((sum, item) => sum + item.amount, 0);
 
     const adjCredit = partyAdjustments
