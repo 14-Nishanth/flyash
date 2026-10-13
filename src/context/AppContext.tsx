@@ -689,7 +689,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       // 1. Parties: Fetch from cloud & merge
-      const { data: pData } = await supabase.from('parties').select('*').order('created_at', { ascending: false });
+      const { data: pData, error: pError } = await supabase.from('parties').select('*').order('created_at', { ascending: false });
+      if (pError) throw new Error(`Cloud sync failed while reading parties: ${pError.message}`);
       if (pData) {
         setParties((localParties) => {
           const cloudIds = new Set(pData.map((p: any) => p.id));
@@ -706,7 +707,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // 2. Expenses: Fetch from cloud & merge
-      const { data: expData } = await supabase.from('expenses').select('*').order('created_at', { ascending: false });
+      const { data: expData, error: expError } = await supabase.from('expenses').select('*').order('created_at', { ascending: false });
+      if (expError) throw new Error(`Cloud sync failed while reading expenses: ${expError.message}`);
       if (expData) {
         setExpenses((localExp) => {
           const cloudIds = new Set(expData.map((e: any) => e.id));
@@ -722,7 +724,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // 3. Payments (including mirrored vouchers): Fetch from cloud & merge
-      const { data: payData } = await supabase.from('payments').select('*').order('created_at', { ascending: false });
+      const { data: payData, error: payError } = await supabase.from('payments').select('*').order('created_at', { ascending: false });
+      if (payError) throw new Error(`Cloud sync failed while reading payments: ${payError.message}`);
       if (payData) {
         setPayments((localPay) => {
           const cloudIds = new Set(payData.map((p: any) => p.id));
@@ -763,7 +766,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // 4. Material Inward: Fetch from cloud
-      const { data: inData } = await supabase.from('material_inward').select('*').order('id', { ascending: false });
+      const { data: inData, error: inError } = await supabase.from('material_inward').select('*').order('id', { ascending: false });
+      if (inError) throw new Error(`Cloud sync failed while reading material inward: ${inError.message}`);
       if (inData) {
         setInwards(
           inData.map((i: any) => ({
@@ -775,7 +779,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // 5. Material Outward: Fetch from cloud
-      const { data: outData } = await supabase.from('material_outward').select('*').order('id', { ascending: false });
+      const { data: outData, error: outError } = await supabase.from('material_outward').select('*').order('id', { ascending: false });
+      if (outError) throw new Error(`Cloud sync failed while reading material outward: ${outError.message}`);
       if (outData) {
         setOutwards(
           outData.map((o: any) => ({
@@ -787,19 +792,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // 6. Job Wage Entries: Fetch from cloud
-      const { data: jobData } = await supabase.from('job_wage_entries').select('*').order('created_at', { ascending: false });
+      const { data: jobData, error: jobError } = await supabase.from('job_wage_entries').select('*').order('created_at', { ascending: false });
+      if (jobError) throw new Error(`Cloud sync failed while reading production jobs: ${jobError.message}`);
       if (jobData) {
         setJobs(jobData);
       }
 
       // 7. Employees: Fetch from cloud
-      const { data: empData } = await supabase.from('employees').select('*').order('name', { ascending: true });
+      const { data: empData, error: empError } = await supabase.from('employees').select('*').order('name', { ascending: true });
+      if (empError) throw new Error(`Cloud sync failed while reading employees: ${empError.message}`);
       if (empData) {
         setEmployees(empData);
       }
 
       // 8. Attendance: Fetch from cloud
-      const { data: attData } = await supabase.from('attendance').select('*').order('date', { ascending: false });
+      const { data: attData, error: attError } = await supabase.from('attendance').select('*').order('date', { ascending: false });
+      if (attError) throw new Error(`Cloud sync failed while reading attendance: ${attError.message}`);
       if (attData) {
         setAttendance(attData.map((a: any) => ({ ...a, id: String(a.id) })));
       }
