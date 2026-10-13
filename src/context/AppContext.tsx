@@ -16,7 +16,7 @@ import {
   ProductRateMaster,
 } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
-import { CLOUD_COLLECTIONS, CloudCollection, getCloudRole, hasCloudAccess, readCloudRecords, saveCloudRecord, softDeleteCloudRecord } from '../lib/cloudRecords';
+import { CLOUD_COLLECTIONS, CloudCollection, getCloudRole, hasCloudAccess, readCloudRecords, sanitizeCloudRecord, saveCloudRecord, softDeleteCloudRecord } from '../lib/cloudRecords';
 import { trackFailedLoginAttempt, resetFailedLoginAttempts } from '../lib/notificationService';
 
 export interface UserSession {
@@ -621,13 +621,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     catch (error) { console.error('Could not clear queued cloud write:', error); }
   };
   const persistRecord = async (collection: CloudCollection, record: Record<string, unknown>) => {
-    const id = String(record.id ?? '');
+    const cloudRecord = sanitizeCloudRecord(collection, record);
+    const id = String(cloudRecord.id ?? '');
     if (!id) { setSyncError(`Cannot sync ${collection}: record ID is missing.`); return false; }
     const supabase = getSupabaseClient();
-    if (!supabase) { updatePendingWrite({ collection, id, data: record, deleted: false }); setSyncError('Cloud database is not configured. Changes are queued on this device.'); return false; }
-    try { await saveCloudRecord(supabase, collection, record); clearPendingWrite(collection, id); setSyncError(null); return true; }
+    if (!supabase) { updatePendingWrite({ collection, id, data: cloudRecord, deleted: false }); setSyncError('Cloud database is not configured. Changes are queued on this device.'); return false; }
+    try { await saveCloudRecord(supabase, collection, cloudRecord); clearPendingWrite(collection, id); setSyncError(null); return true; }
     catch (error) {
-      updatePendingWrite({ collection, id, data: record, deleted: false });
+      updatePendingWrite({ collection, id, data: cloudRecord, deleted: false });
       const message = error instanceof Error ? error.message : 'Could not save the change to the cloud.';
       setSyncError(`${message} The change is queued on this device and will retry.`);
       console.error('Cloud save failed:', message); return false;
@@ -673,7 +674,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         partyAdjustments: partyAdjustments as unknown as Record<string, unknown>[], jobs: jobs as unknown as Record<string, unknown>[],
         employees: employees as unknown as Record<string, unknown>[], attendance: attendance as unknown as Record<string, unknown>[],
         expenses: expenses as unknown as Record<string, unknown>[], workerGroups: workerGroups as unknown as Record<string, unknown>[],
-        productRates: productRates as unknown as Record<string, unknown>[], settings: [{ ...settings, id: 'global' } as unknown as Record<string, unknown>],
+        productRates: productRates as unknown as Record<string, unknown>[], settings: [sanitizeCloudRecord('settings', { ...settings, id: 'global' })],
       };
       const merged = {} as Record<CloudCollection, Record<string, unknown>[]>;
       for (const collection of CLOUD_COLLECTIONS) {
@@ -683,7 +684,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const id = record.id == null ? '' : String(record.id);
           return id !== '' && !rowKeys.has(`${collection}::${id}`);
         });
-        for (const record of localOnly) await saveCloudRecord(supabase, collection, record);
+        for (const record of localOnly) await saveCloudRecord(supabase, collection, cloudRecord);
         merged[collection] = [...activeCloud, ...localOnly];
       }
       setParties(merged.parties as unknown as Party[]);
@@ -696,7 +697,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setProductRates(merged.productRates as unknown as ProductRateMaster[]);
       if (merged.settings.length > 0) {
         const cloudSettings = merged.settings[0] as unknown as AlertSettings & { id?: string };
-        const { id: _ignored, ...withoutId } = cloudSettings; setSettings({ ...DEFAULT_SETTINGS, ...withoutId });
+        const { id: _ignored, ...withoutId } = cloudSettings;
+        // Provider credentials remain device-local and are never copied into the shared cloud record.
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...withoutId,
+          supabase_url: settings.supabase_url,
+          supabase_anon_key: settings.supabase_anon_key,
+          telegram_bot_token: settings.telegram_bot_token,
+          telegram_chat_id: settings.telegram_chat_id,
+          email_service_id: settings.email_service_id,
+          email_template_id: settings.email_template_id,
+          email_public_key: settings.email_public_key,
+        });
       }
       setLastSyncedTime(new Date().toLocaleTimeString('en-IN'));
       const remaining = JSON.parse(localStorage.getItem(pendingWritesKey) || '[]') as PendingCloudWrite[];
