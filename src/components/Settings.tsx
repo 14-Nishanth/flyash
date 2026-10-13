@@ -54,6 +54,10 @@ export const Settings: React.FC = () => {
     canManageUsers,
     canDelete,
     currentUser,
+    syncError,
+    lastSyncedTime,
+    isSyncing,
+    syncWithCloud,
     parties,
     inwards,
     outwards,
@@ -106,7 +110,7 @@ export const Settings: React.FC = () => {
   const [dbCheckMsg, setDbCheckMsg] = useState('YES — Supabase PostgreSQL Cloud Database is Connected & Operational');
 
   // Supabase Table Explorer State (Admin Access)
-  const [selectedDbTable, setSelectedDbTable] = useState('parties');
+  const [selectedDbTable, setSelectedDbTable] = useState('app_records');
   const [tableRows, setTableRows] = useState<any[]>([]);
   const [tableLoading, setTableLoading] = useState(false);
   const [tableFetchError, setTableFetchError] = useState<string | null>(null);
@@ -162,6 +166,7 @@ export const Settings: React.FC = () => {
   const [newRole, setNewRole] = useState<UserRole>('operator');
   const [newPhone, setNewPhone] = useState('');
   const [userCreatedMsg, setUserCreatedMsg] = useState(false);
+  const [userActionError, setUserActionError] = useState('');
 
   // User Editing Modal State
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
@@ -305,8 +310,8 @@ export const Settings: React.FC = () => {
       setPasswordChangeMsg({ type: 'error', text: 'Passwords do not match. Please re-enter.' });
       return;
     }
-    if (myNewPassword.trim().length < 4) {
-      setPasswordChangeMsg({ type: 'error', text: 'Password must be at least 4 characters long.' });
+    if (myNewPassword.trim().length < 8) {
+      setPasswordChangeMsg({ type: 'error', text: 'Password must be at least 8 characters long.' });
       return;
     }
 
@@ -324,19 +329,24 @@ export const Settings: React.FC = () => {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUsername || !newPassword || !newName) return;
-    await addUser({
-      username: newUsername.trim().toLowerCase(),
-      password: newPassword.trim(),
-      name: newName.trim(),
-      role: newRole,
-      phone: newPhone.trim(),
-    });
-    setNewUsername('');
-    setNewPassword('');
-    setNewName('');
-    setNewPhone('');
-    setUserCreatedMsg(true);
-    setTimeout(() => setUserCreatedMsg(false), 3000);
+    setUserActionError('');
+    try {
+      await addUser({
+        username: newUsername.trim().toLowerCase(),
+        password: newPassword.trim(),
+        name: newName.trim(),
+        role: newRole,
+        phone: newPhone.trim(),
+      });
+      setNewUsername('');
+      setNewPassword('');
+      setNewName('');
+      setNewPhone('');
+      setUserCreatedMsg(true);
+      setTimeout(() => setUserCreatedMsg(false), 3000);
+    } catch (error) {
+      setUserActionError(error instanceof Error ? error.message : 'Could not create user.');
+    }
   };
 
   const openEditUserModal = (u: AppUser) => {
@@ -352,24 +362,27 @@ export const Settings: React.FC = () => {
   const handleSaveUserEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
-    await updateUser(editingUser.id, {
-      name: editName.trim(),
-      username: editUsername.trim().toLowerCase(),
-      password: editPassword.trim() || editingUser.password,
-      role: editRole,
-      phone: editPhone.trim(),
-    });
-    setEditModalOpen(false);
-    setEditingUser(null);
+    setUserActionError('');
+    try {
+      await updateUser(editingUser.id, {
+        name: editName.trim(),
+        username: editUsername.trim().toLowerCase(),
+        password: editPassword.trim() || undefined,
+        role: editRole,
+        phone: editPhone.trim(),
+      });
+      setEditModalOpen(false);
+      setEditingUser(null);
+    } catch (error) {
+      setUserActionError(error instanceof Error ? error.message : 'Could not update user.');
+    }
   };
 
   const handleDeleteUser = async (id: string, username: string) => {
-    if (username === 'admin' || username === 'owner') {
-      alert('Master admin/owner accounts cannot be removed.');
-      return;
-    }
+    setUserActionError('');
     if (window.confirm(`Are you sure you want to delete user account "${username}"?`)) {
-      await deleteUser(id);
+      try { await deleteUser(id); }
+      catch (error) { setUserActionError(error instanceof Error ? error.message : 'Could not delete user.'); }
     }
   };
 
@@ -911,7 +924,7 @@ export const Settings: React.FC = () => {
                   Project: laqpdlasfxearjtnnouu
                 </span>
               </div>
-              <p className="text-xs text-slate-500">PostgreSQL cloud storage with live table inspection & direct admin links</p>
+              <p className="text-xs text-slate-500">Shared, authenticated cloud records with live table inspection</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -942,8 +955,18 @@ export const Settings: React.FC = () => {
             <span>{dbCheckMsg}</span>
           </div>
           <span className="text-[11px] text-slate-500">
-            PostgreSQL • SSL Encrypted • Realtime Sync Active
+            {syncError ? `Sync needs attention: ${syncError}` : isSyncing ? "Synchronizing shared records…" : lastSyncedTime ? `Last synchronized at ${lastSyncedTime}` : "Sign in with an authorized company account to sync"}
           </span>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+          <div className="text-xs text-slate-600 dark:text-slate-300">
+            Cross-device business data uses the authenticated <code>app_records</code> store. Legacy tables remain untouched for compatibility.
+          </div>
+          <button type="button" onClick={() => { void syncWithCloud(); }} disabled={isSyncing}
+            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-2">
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} /> Sync Now
+          </button>
         </div>
 
         {/* Tabs: Table Direct Links vs In-App Live Table Viewer */}
@@ -956,7 +979,7 @@ export const Settings: React.FC = () => {
                 : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            <Layers className="w-4 h-4" /> 12 Cloud Tables & Direct Links
+            <Layers className="w-4 h-4" /> Legacy Tables & Shared Sync Store
           </button>
           <button
             onClick={() => {
@@ -973,22 +996,11 @@ export const Settings: React.FC = () => {
           </button>
         </div>
 
-        {/* TAB 1: 12 Cloud Table Direct Cards */}
+        {/* TAB 1: Shared cloud store and legacy tables */}
         {dbActiveTab === 'cards' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
-              { id: 'parties', name: 'parties', label: 'Parties & Ledger', count: parties.length, desc: 'Suppliers, Customers, Credit/Debit ledger balances' },
-              { id: 'expenses', name: 'expenses', label: 'Expenses & Purchases', count: expenses.length, desc: 'Operational bills, material invoices & due settlements' },
-              { id: 'party_adjustments', name: 'party_adjustments', label: 'Party Due Payments', count: 'Synced', desc: 'Manual payments & supplier balance reductions' },
-              { id: 'material_inward', name: 'material_inward', label: 'Material Inward', count: inwards.length, desc: 'Cement, Fly Ash, Quarry Dust, Admixture entries' },
-              { id: 'material_outward', name: 'material_outward', label: 'Material Outward', count: outwards.length, desc: 'Brick delivery challans & customer dispatches' },
-              { id: 'payments', name: 'payments', label: 'Payment Receipts', count: 'Synced', desc: 'Cash, UPI, NEFT collections and supplier payouts' },
-              { id: 'job_wage_entries', name: 'job_wage_entries', label: 'Production & Wages', count: jobs.length, desc: 'Shift brick output, batch counts & piece rates' },
-              { id: 'employees', name: 'employees', label: 'Employees & Laborers', count: employees.length, desc: 'Staff directory, wage rates & active status' },
-              { id: 'attendance', name: 'attendance', label: 'Daily Attendance', count: 'Synced', desc: 'Shift clock-ins, worker presence and daily logs' },
-              { id: 'app_users', name: 'app_users', label: 'App Users & Security', count: users.length, desc: 'System logins, credentials & RBAC role access' },
-              { id: 'worker_groups', name: 'worker_groups', label: 'Worker Groups', count: 'Synced', desc: 'Production gang leaders and team allocations' },
-              { id: 'product_rates', name: 'product_rates', label: 'Product Rates', count: 'Synced', desc: 'Brick selling prices and raw material rate masters' },
+              { id: 'app_records', name: 'app_records', label: 'Shared Cloud Records', count: parties.length + inwards.length + outwards.length + payments.length + partyAdjustments.length + jobs.length + employees.length + attendance.length + expenses.length + workerGroups.length + productRates.length, desc: 'Canonical authenticated store for cross-device edits, realtime updates, and recoverable delete markers' },
             ].map((tbl) => (
               <div
                 key={tbl.id}
@@ -1049,18 +1061,15 @@ export const Settings: React.FC = () => {
                   }}
                   className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500"
                 >
-                  <option value="parties">parties (Parties & Ledgers)</option>
-                  <option value="expenses">expenses (Expenses & Invoices)</option>
-                  <option value="party_adjustments">party_adjustments (Due Payments)</option>
-                  <option value="material_inward">material_inward (Raw Materials)</option>
-                  <option value="material_outward">material_outward (Brick Dispatches)</option>
-                  <option value="payments">payments (Receipts)</option>
-                  <option value="job_wage_entries">job_wage_entries (Wages & Output)</option>
-                  <option value="employees">employees (Laborers & Staff)</option>
-                  <option value="attendance">attendance (Daily Shifts)</option>
-                  <option value="app_users">app_users (Accounts & Passwords)</option>
-                  <option value="worker_groups">worker_groups (Gangs)</option>
-                  <option value="product_rates">product_rates (Pricing)</option>
+                  <option value="app_records">app_records (Shared Cloud Records)</option>
+                  <option value="parties">parties (Legacy Parties)</option>
+                  <option value="expenses">expenses (Legacy Expenses)</option>
+                  <option value="material_inward">material_inward (Legacy Inward)</option>
+                  <option value="material_outward">material_outward (Legacy Outward)</option>
+                  <option value="payments">payments (Legacy Payments)</option>
+                  <option value="job_wage_entries">job_wage_entries (Legacy Jobs)</option>
+                  <option value="employees">employees (Legacy Employees)</option>
+                  <option value="attendance">attendance (Legacy Attendance)</option>
                 </select>
 
                 <button
@@ -1180,6 +1189,11 @@ export const Settings: React.FC = () => {
           and edit all materials, production, and accounts data, but <b>cannot delete</b> any records from the database.
         </p>
 
+        {userActionError && (
+          <div className="mb-3 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300">
+            {userActionError}
+          </div>
+        )}
         {/* Create User Form (Admin/Owner only) */}
         {canManageUsers ? (
           <form onSubmit={handleCreateUser} className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl space-y-3 border border-slate-200 dark:border-slate-700">
@@ -1202,14 +1216,15 @@ export const Settings: React.FC = () => {
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Username *
+                  Company Email *
                 </label>
                 <input
-                  type="text"
+                  type="email"
+                  autoComplete="email"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   required
-                  placeholder="e.g. operator1"
+                  placeholder="operator@company.com"
                   className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -1218,7 +1233,9 @@ export const Settings: React.FC = () => {
                   Password *
                 </label>
                 <input
-                  type="text"
+                  type="password"
+                  minLength={8}
+                  autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -1365,7 +1382,8 @@ export const Settings: React.FC = () => {
                   Username / Login *
                 </label>
                 <input
-                  type="text"
+                  type="email"
+                  autoComplete="email"
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value)}
                   required
@@ -1378,7 +1396,9 @@ export const Settings: React.FC = () => {
                   New Password (leave blank to keep current)
                 </label>
                 <input
-                  type="text"
+                  type="password"
+                  minLength={8}
+                  autoComplete="new-password"
                   value={editPassword}
                   onChange={(e) => setEditPassword(e.target.value)}
                   placeholder="Enter new password"
