@@ -991,16 +991,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setWorkerGroups((prev) => [...prev, newGroup]);
     await persistRecord('workerGroups', newGroup as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('worker_groups').insert(newGroup);
   };
 
   const updateGroup = async (id: string, updated: Partial<WorkerGroup>) => {
     const mergedGroup = { ...(workerGroups.find((g) => g.id === id) || {}), ...updated, id };
     setWorkerGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...updated } : g)));
     await persistRecord('workerGroups', mergedGroup as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('worker_groups').update(updated).eq('id', id);
   };
 
   const deleteGroup = async (id: string): Promise<boolean> => {
@@ -1010,8 +1006,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setWorkerGroups((prev) => prev.filter((g) => g.id !== id));
     await removeCloudRecord('workerGroups', id);
-    const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('worker_groups').delete().eq('id', id);
     return true;
   };
 
@@ -1024,16 +1018,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setProductRates((prev) => [...prev, newProd]);
     await persistRecord('productRates', newProd as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('product_rates').insert(newProd);
   };
 
   const updateProductRate = async (id: string, updated: Partial<ProductRateMaster>) => {
     const mergedRate = { ...(productRates.find((p) => p.id === id) || {}), ...updated, id };
     setProductRates((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
     await persistRecord('productRates', mergedRate as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('product_rates').update(updated).eq('id', id);
   };
 
   const deleteProductRate = async (id: string): Promise<boolean> => {
@@ -1043,8 +1033,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setProductRates((prev) => prev.filter((p) => p.id !== id));
     await removeCloudRecord('productRates', id);
-    const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('product_rates').delete().eq('id', id);
     return true;
   };
 
@@ -1057,31 +1045,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setParties((prev) => [newParty, ...prev]);
     await persistRecord('parties', newParty as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const { error } = await supabase.from('parties').insert(sanitizePartyForDb(newParty));
-        if (error) console.error('Party insert cloud sync error:', error.message);
-      } catch (e) {
-        console.warn('Party cloud sync exception:', e);
-      }
-    }
-  };
+};
 
   const updateParty = async (id: string, updated: Partial<Party>) => {
     const mergedParty = { ...(parties.find((p) => p.id === id) || {}), ...updated, id };
     setParties((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
     await persistRecord('parties', mergedParty as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const { error } = await supabase.from('parties').update(sanitizePartyForDb({ ...updated, id })).eq('id', id);
-        if (error) console.error('Party update cloud sync error:', error.message);
-      } catch (e) {
-        console.warn('Party update cloud sync exception:', e);
-      }
-    }
-  };
+};
 
   const deleteParty = async (id: string): Promise<boolean> => {
     if (!canDelete) {
@@ -1090,15 +1060,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setParties((prev) => prev.filter((p) => p.id !== id));
     await removeCloudRecord('parties', id);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('parties').delete().eq('id', id);
-      } catch (e) {
-        console.warn('Party delete cloud sync exception:', e);
-      }
-    }
-    return true;
+return true;
   };
 
   // --- INWARD CRUD ---
@@ -1111,18 +1073,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setInwards((prev) => [newInward, ...prev]);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.from('material_inward').insert(sanitizeInwardForDb(newInward)).select();
-        if (error) {
-          console.error('Inward insert cloud sync error:', error.message);
-        }
-      } catch (e) {
-        console.warn('Inward cloud sync exception:', e);
-      }
-    }
-    await persistRecord('inwards', newInward as unknown as Record<string, unknown>);
+await persistRecord('inwards', newInward as unknown as Record<string, unknown>);
   };
 
   const updateInward = async (id: string, updated: Partial<MaterialInward>) => {
@@ -1133,18 +1084,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const mergedInward = { ...(inwards.find((i) => i.id === id) || {}), ...updated, id };
     setInwards((prev) => prev.map((i) => (i.id === id ? { ...i, ...updated } : i)));
     await persistRecord('inwards', mergedInward as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const numId = Number(id);
-        if (!isNaN(numId)) {
-          await supabase.from('material_inward').update(sanitizeInwardForDb(updated)).eq('id', numId);
-        }
-      } catch (e) {
-        console.warn('Inward update cloud sync exception:', e);
-      }
-    }
-  };
+};
 
   const deleteInward = async (id: string): Promise<boolean> => {
     if (!canDelete) {
@@ -1153,18 +1093,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setInwards((prev) => prev.filter((i) => i.id !== id));
     await removeCloudRecord('inwards', id);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const numId = Number(id);
-        if (!isNaN(numId)) {
-          await supabase.from('material_inward').delete().eq('id', numId);
-        }
-      } catch (e) {
-        console.warn('Inward delete cloud sync exception:', e);
-      }
-    }
-    return true;
+return true;
   };
 
   // --- OUTWARD CRUD ---
@@ -1177,18 +1106,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setOutwards((prev) => [newOutward, ...prev]);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.from('material_outward').insert(sanitizeOutwardForDb(newOutward)).select();
-        if (error) {
-          console.error('Outward insert cloud sync error:', error.message);
-        }
-      } catch (e) {
-        console.warn('Outward cloud sync exception:', e);
-      }
-    }
-    await persistRecord('outwards', newOutward as unknown as Record<string, unknown>);
+await persistRecord('outwards', newOutward as unknown as Record<string, unknown>);
   };
 
   const updateOutward = async (id: string, updated: Partial<MaterialOutward>) => {
@@ -1199,18 +1117,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const mergedOutward = { ...(outwards.find((o) => o.id === id) || {}), ...updated, id };
     setOutwards((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
     await persistRecord('outwards', mergedOutward as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const numId = Number(id);
-        if (!isNaN(numId)) {
-          await supabase.from('material_outward').update(sanitizeOutwardForDb(updated)).eq('id', numId);
-        }
-      } catch (e) {
-        console.warn('Outward update cloud sync exception:', e);
-      }
-    }
-  };
+};
 
   const deleteOutward = async (id: string): Promise<boolean> => {
     if (!canDelete) {
@@ -1219,18 +1126,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setOutwards((prev) => prev.filter((o) => o.id !== id));
     await removeCloudRecord('outwards', id);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const numId = Number(id);
-        if (!isNaN(numId)) {
-          await supabase.from('material_outward').delete().eq('id', numId);
-        }
-      } catch (e) {
-        console.warn('Outward delete cloud sync exception:', e);
-      }
-    }
-    return true;
+return true;
   };
 
   // --- PAYMENTS CRUD ---
@@ -1244,16 +1140,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setPayments((prev) => [newPayment, ...prev]);
     await persistRecord('payments', newPayment as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const { error } = await supabase.from('payments').insert(sanitizePaymentForDb(newPayment));
-        if (error) console.error('Payment insert cloud sync error:', error.message);
-      } catch (e) {
-        console.warn('Payment cloud sync exception:', e);
-      }
-    }
-  };
+};
 
   const updatePayment = async (id: string, updated: Partial<Payment>) => {
     if (updated.party_id) {
@@ -1263,15 +1150,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const mergedPayment = { ...(payments.find((p) => p.id === id) || {}), ...updated, id };
     setPayments((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
     await persistRecord('payments', mergedPayment as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('payments').update(sanitizePaymentForDb({ ...updated, id })).eq('id', id);
-      } catch (e) {
-        console.warn('Payment update cloud sync exception:', e);
-      }
-    }
-  };
+};
 
   const deletePayment = async (id: string): Promise<boolean> => {
     if (!canDelete) {
@@ -1280,15 +1159,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setPayments((prev) => prev.filter((p) => p.id !== id));
     await removeCloudRecord('payments', id);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('payments').delete().eq('id', id);
-      } catch (e) {
-        console.warn('Payment delete cloud sync exception:', e);
-      }
-    }
-    return true;
+return true;
   };
 
   // --- PARTY ADJUSTMENTS / CREDIT & DEBIT VOUCHERS CRUD ---
@@ -1302,28 +1173,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setPartyAdjustments((prev) => [newAdj, ...prev]);
     await persistRecord('partyAdjustments', newAdj as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        // Mirror to payments table with mode: 'adjustment' to guarantee cloud sync across all devices
-        const mirrorPayment = {
-          id: newAdj.id,
-          date: newAdj.date,
-          party_id: newAdj.party_id,
-          party_name: newAdj.party_name,
-          payment_type: newAdj.voucher_type === 'credit' ? 'received' : 'paid',
-          amount: newAdj.amount,
-          mode: 'adjustment',
-          reference_no: newAdj.reference_no || '',
-          notes: `[Voucher: ${newAdj.category}] ${newAdj.notes || ''}`.trim(),
-          created_at: newAdj.created_at,
-        };
-        await supabase.from('payments').insert(sanitizePaymentForDb(mirrorPayment));
-      } catch (e) {
-        console.warn('Supabase party adjustment mirror sync:', e);
-      }
-    }
-  };
+};
 
   const updatePartyAdjustment = async (id: string, updated: Partial<PartyAdjustment>) => {
     if (updated.party_id) {
@@ -1333,18 +1183,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const mergedAdjustment = { ...(partyAdjustments.find((a) => a.id === id) || {}), ...updated, id };
     setPartyAdjustments((prev) => prev.map((a) => (a.id === id ? { ...a, ...updated } : a)));
     await persistRecord('partyAdjustments', mergedAdjustment as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('payments').update({
-          amount: updated.amount,
-          notes: updated.category ? `[Voucher: ${updated.category}] ${updated.notes || ''}`.trim() : updated.notes,
-        }).eq('id', id);
-      } catch (e) {
-        console.warn('Supabase party adjustment update sync:', e);
-      }
-    }
-  };
+};
 
   const deletePartyAdjustment = async (id: string): Promise<boolean> => {
     if (!canDelete) {
@@ -1353,15 +1192,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setPartyAdjustments((prev) => prev.filter((a) => a.id !== id));
     await removeCloudRecord('partyAdjustments', id);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('payments').delete().eq('id', id);
-      } catch (e) {
-        console.warn('Supabase party adjustment delete sync:', e);
-      }
-    }
-    return true;
+return true;
   };
 
   // --- PRODUCTION / JOBS CRUD ---
@@ -1373,30 +1204,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setJobs((prev) => [newJob, ...prev]);
     await persistRecord('jobs', newJob as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const { error } = await supabase.from('job_wage_entries').insert(sanitizeJobForDb(newJob));
-        if (error) console.error('Job insert cloud sync error:', error.message);
-      } catch (e) {
-        console.warn('Job cloud sync exception:', e);
-      }
-    }
-  };
+};
 
   const updateJob = async (id: string, updated: Partial<JobWageEntry>) => {
     const mergedJob = { ...(jobs.find((j) => j.id === id) || {}), ...updated, id };
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...updated } : j)));
     await persistRecord('jobs', mergedJob as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('job_wage_entries').update(sanitizeJobForDb({ ...updated, id })).eq('id', id);
-      } catch (e) {
-        console.warn('Job update cloud sync exception:', e);
-      }
-    }
-  };
+};
 
   const deleteJob = async (id: string): Promise<boolean> => {
     if (!canDelete) {
@@ -1405,15 +1219,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setJobs((prev) => prev.filter((j) => j.id !== id));
     await removeCloudRecord('jobs', id);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('job_wage_entries').delete().eq('id', id);
-      } catch (e) {
-        console.warn('Job delete cloud sync exception:', e);
-      }
-    }
-    return true;
+return true;
   };
 
   // --- EMPLOYEES CRUD ---
@@ -1424,30 +1230,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setEmployees((prev) => [...prev, newEmp]);
     await persistRecord('employees', newEmp as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const { error } = await supabase.from('employees').insert(sanitizeEmployeeForDb(newEmp));
-        if (error) console.error('Employee insert cloud sync error:', error.message);
-      } catch (e) {
-        console.warn('Employee cloud sync exception:', e);
-      }
-    }
-  };
+};
 
   const updateEmployee = async (id: string, updated: Partial<Employee>) => {
     const mergedEmployee = { ...(employees.find((e) => e.id === id) || {}), ...updated, id };
     setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
     await persistRecord('employees', mergedEmployee as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('employees').update(sanitizeEmployeeForDb({ ...updated, id })).eq('id', id);
-      } catch (e) {
-        console.warn('Employee update cloud sync exception:', e);
-      }
-    }
-  };
+};
 
   const deleteEmployee = async (id: string): Promise<boolean> => {
     if (!canDelete) {
@@ -1456,15 +1245,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setEmployees((prev) => prev.filter((e) => e.id !== id));
     await removeCloudRecord('employees', id);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('employees').delete().eq('id', id);
-      } catch (e) {
-        console.warn('Employee delete cloud sync exception:', e);
-      }
-    }
-    return true;
+return true;
   };
 
   // --- ATTENDANCE CRUD ---
@@ -1489,22 +1270,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     for (const oldRecord of previousForDate) await removeCloudRecord('attendance', oldRecord.id);
     for (const record of newRecords) await persistRecord('attendance', record as unknown as Record<string, unknown>);
 
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('attendance').delete().eq('date', date);
-        const dbRecords = records.map((r, idx) => ({
-          employee_id: idx + 1,
-          date,
-          status: r.status,
-          notes: r.notes || '',
-        }));
-        await supabase.from('attendance').insert(dbRecords);
-      } catch (e) {
-        console.warn('Attendance cloud sync exception:', e);
-      }
-    }
-  };
+};
 
   const deleteAttendanceForDate = async (date: string): Promise<boolean> => {
     if (!canDelete) {
@@ -1513,15 +1279,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setAttendance((prev) => prev.filter((a) => a.date !== date));
     for (const record of attendance.filter((a) => a.date === date)) await removeCloudRecord('attendance', record.id);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('attendance').delete().eq('date', date);
-      } catch (e) {
-        console.warn('Attendance delete cloud sync exception:', e);
-      }
-    }
-    return true;
+return true;
   };
 
   // --- EXPENSES CRUD ---
@@ -1544,16 +1302,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setExpenses((prev) => [newExpense, ...prev]);
     await persistRecord('expenses', newExpense as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const { error } = await supabase.from('expenses').insert(sanitizeExpenseForDb(newExpense));
-        if (error) console.error('Expense insert cloud sync error:', error.message);
-      } catch (e) {
-        console.warn('Supabase expense insert sync exception:', e);
-      }
-    }
-  };
+};
 
   const updateExpense = async (id: string, updated: Partial<Expense>) => {
     if (updated.party_id) {
@@ -1566,15 +1315,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const mergedExpense = { ...(expenses.find((e) => e.id === id) || {}), ...updated, id };
     setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
     await persistRecord('expenses', mergedExpense as unknown as Record<string, unknown>);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('expenses').update(sanitizeExpenseForDb({ ...updated, id })).eq('id', id);
-      } catch (e) {
-        console.warn('Supabase expense update sync exception:', e);
-      }
-    }
-  };
+};
 
   const deleteExpense = async (id: string): Promise<boolean> => {
     if (!canDelete) {
@@ -1583,15 +1324,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     await removeCloudRecord('expenses', id);
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        await supabase.from('expenses').delete().eq('id', id);
-      } catch (e) {
-        console.warn('Expense delete cloud sync exception:', e);
-      }
-    }
-    return true;
+return true;
   };
 
   const updateSettings = async (newSettings: AlertSettings) => {
