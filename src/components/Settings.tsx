@@ -110,7 +110,7 @@ export const Settings: React.FC = () => {
   const [dbCheckMsg, setDbCheckMsg] = useState('YES — Supabase PostgreSQL Cloud Database is Connected & Operational');
 
   // Supabase Table Explorer State (Admin Access)
-  const [selectedDbTable, setSelectedDbTable] = useState('parties');
+  const [selectedDbTable, setSelectedDbTable] = useState('app_records');
   const [tableRows, setTableRows] = useState<any[]>([]);
   const [tableLoading, setTableLoading] = useState(false);
   const [tableFetchError, setTableFetchError] = useState<string | null>(null);
@@ -996,22 +996,11 @@ export const Settings: React.FC = () => {
           </button>
         </div>
 
-        {/* TAB 1: 12 Cloud Table Direct Cards */}
+        {/* TAB 1: Shared cloud store and legacy tables */}
         {dbActiveTab === 'cards' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
-              { id: 'parties', name: 'parties', label: 'Parties & Ledger', count: parties.length, desc: 'Suppliers, Customers, Credit/Debit ledger balances' },
-              { id: 'expenses', name: 'expenses', label: 'Expenses & Purchases', count: expenses.length, desc: 'Operational bills, material invoices & due settlements' },
-              { id: 'party_adjustments', name: 'party_adjustments', label: 'Party Due Payments', count: 'Synced', desc: 'Manual payments & supplier balance reductions' },
-              { id: 'material_inward', name: 'material_inward', label: 'Material Inward', count: inwards.length, desc: 'Cement, Fly Ash, Quarry Dust, Admixture entries' },
-              { id: 'material_outward', name: 'material_outward', label: 'Material Outward', count: outwards.length, desc: 'Brick delivery challans & customer dispatches' },
-              { id: 'payments', name: 'payments', label: 'Payment Receipts', count: 'Synced', desc: 'Cash, UPI, NEFT collections and supplier payouts' },
-              { id: 'job_wage_entries', name: 'job_wage_entries', label: 'Production & Wages', count: jobs.length, desc: 'Shift brick output, batch counts & piece rates' },
-              { id: 'employees', name: 'employees', label: 'Employees & Laborers', count: employees.length, desc: 'Staff directory, wage rates & active status' },
-              { id: 'attendance', name: 'attendance', label: 'Daily Attendance', count: 'Synced', desc: 'Shift clock-ins, worker presence and daily logs' },
-              { id: 'app_users', name: 'app_users', label: 'App Users & Security', count: users.length, desc: 'System logins, credentials & RBAC role access' },
-              { id: 'worker_groups', name: 'worker_groups', label: 'Worker Groups', count: 'Synced', desc: 'Production gang leaders and team allocations' },
-              { id: 'product_rates', name: 'product_rates', label: 'Product Rates', count: 'Synced', desc: 'Brick selling prices and raw material rate masters' },
+              { id: 'app_records', name: 'app_records', label: 'Shared Cloud Records', count: parties.length + inwards.length + outwards.length + payments.length + partyAdjustments.length + jobs.length + employees.length + attendance.length + expenses.length + workerGroups.length + productRates.length, desc: 'Canonical authenticated store for cross-device edits, realtime updates, and recoverable delete markers' },
             ].map((tbl) => (
               <div
                 key={tbl.id}
@@ -1072,18 +1061,15 @@ export const Settings: React.FC = () => {
                   }}
                   className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500"
                 >
-                  <option value="parties">parties (Parties & Ledgers)</option>
-                  <option value="expenses">expenses (Expenses & Invoices)</option>
-                  <option value="party_adjustments">party_adjustments (Due Payments)</option>
-                  <option value="material_inward">material_inward (Raw Materials)</option>
-                  <option value="material_outward">material_outward (Brick Dispatches)</option>
-                  <option value="payments">payments (Receipts)</option>
-                  <option value="job_wage_entries">job_wage_entries (Wages & Output)</option>
-                  <option value="employees">employees (Laborers & Staff)</option>
-                  <option value="attendance">attendance (Daily Shifts)</option>
-                  <option value="app_users">app_users (Accounts & Passwords)</option>
-                  <option value="worker_groups">worker_groups (Gangs)</option>
-                  <option value="product_rates">product_rates (Pricing)</option>
+                  <option value="app_records">app_records (Shared Cloud Records)</option>
+                  <option value="parties">parties (Legacy Parties)</option>
+                  <option value="expenses">expenses (Legacy Expenses)</option>
+                  <option value="material_inward">material_inward (Legacy Inward)</option>
+                  <option value="material_outward">material_outward (Legacy Outward)</option>
+                  <option value="payments">payments (Legacy Payments)</option>
+                  <option value="job_wage_entries">job_wage_entries (Legacy Jobs)</option>
+                  <option value="employees">employees (Legacy Employees)</option>
+                  <option value="attendance">attendance (Legacy Attendance)</option>
                 </select>
 
                 <button
