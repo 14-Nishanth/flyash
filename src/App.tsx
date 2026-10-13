@@ -59,7 +59,7 @@ export const App: React.FC = () => {
       {/* Fixed Display Body: Left-Side Small Button Bar + Scrollable Page Container */}
       <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden relative">
         {/* LEFT-SIDE SMALL BUTTON BAR FOR EVERY OPTION (Taste Skill: High-Craft Compact Rail) */}
-        <aside className="h-full w-14 sm:w-36 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-r border-slate-200/90 dark:border-slate-800/90 flex flex-col justify-between p-1 sm:p-2 shrink-0 overflow-y-auto z-30 shadow-xs">
+        <aside className="hidden sm:flex h-full w-14 sm:w-36 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-r border-slate-200/90 dark:border-slate-800/90 flex flex-col justify-between p-1 sm:p-2 shrink-0 overflow-y-auto z-30 shadow-xs">
           {/* Top: Small Button for Every Option */}
           <div className="space-y-1">
             <div className="hidden sm:block px-2 py-1 text-[9px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">
@@ -160,7 +160,7 @@ export const App: React.FC = () => {
         </div>
 
         {/* Floating Quick Page Scroll Buttons (Up / Down) for Easy Scrolling on Any Device */}
-        <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-1.5">
+        <div className="hidden sm:flex fixed bottom-4 right-4 z-40 flex-col gap-1.5">
           <button
             type="button"
             onClick={() => handleScrollBy(-360)}
@@ -179,6 +179,31 @@ export const App: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Phone navigation: horizontally scrollable, thumb-friendly module buttons */}
+      <nav aria-label="Main navigation" className="sm:hidden fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-lg pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-stretch gap-1 overflow-x-auto px-2 py-2">
+          {MENU_OPTIONS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(item.id);
+                  scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                aria-current={isActive ? 'page' : undefined}
+                className={'flex min-w-[62px] flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-[10px] font-semibold transition ' + (isActive ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400')}
+              >
+                <Icon className={'h-5 w-5 ' + (isActive ? 'text-amber-600 dark:text-amber-400' : item.color)} />
+                <span className="max-w-[70px] truncate">{item.shortLabel}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 };
