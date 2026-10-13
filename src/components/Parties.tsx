@@ -40,6 +40,7 @@ export const Parties: React.FC = () => {
     updatePartyAdjustment,
     deletePartyAdjustment,
     addPayment,
+    updatePayment,
     deletePayment,
     calculatePartyBalance,
     canDelete,
@@ -88,6 +89,7 @@ export const Parties: React.FC = () => {
 
   // Quick Pay Modal State
   const [payAmount, setPayAmount] = useState('');
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [payDirection, setPayDirection] = useState<'received' | 'paid'>('received');
   const [payMode, setPayMode] = useState<PaymentMode>('upi');
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
@@ -152,6 +154,7 @@ export const Parties: React.FC = () => {
   };
 
   const openQuickPay = (party: Party, direction: 'received' | 'paid') => {
+    setEditingPayment(null);
     setSelectedParty(party);
     const bal = calculatePartyBalance(party.id);
     setPayDirection(direction);
@@ -239,6 +242,23 @@ export const Parties: React.FC = () => {
     setVNotes('');
   };
 
+  const openEditPayment = (payment: Payment) => {
+    const party = parties.find((p) => p.id === payment.party_id);
+    if (!party) {
+      alert('This receipt is linked to a party that no longer exists.');
+      return;
+    }
+    setSelectedParty(party);
+    setEditingPayment(payment);
+    setPayDirection(payment.payment_type);
+    setPayAmount(String(payment.amount));
+    setPayMode(payment.mode || 'upi');
+    setPayDate(payment.date || new Date().toISOString().split('T')[0]);
+    setPayRef(payment.reference_no || '');
+    setPayNotes(payment.notes || '');
+    setPayModalOpen(true);
+  };
+
   const handleSaveQuickPay = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedParty) return;
@@ -249,7 +269,7 @@ export const Parties: React.FC = () => {
       return;
     }
 
-    await addPayment({
+    const paymentData = {
       date: payDate,
       party_id: selectedParty.id,
       party_name: selectedParty.name,
@@ -258,9 +278,15 @@ export const Parties: React.FC = () => {
       mode: payMode,
       reference_no: payRef.trim(),
       notes: payNotes.trim(),
-    });
+    };
+    if (editingPayment) {
+      await updatePayment(editingPayment.id, paymentData);
+    } else {
+      await addPayment(paymentData);
+    }
 
     setPayModalOpen(false);
+    setEditingPayment(null);
     setPayAmount('');
     setPayRef('');
     setPayNotes('');
@@ -764,6 +790,7 @@ export const Parties: React.FC = () => {
               <div>
                 <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">Received Amounts</h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Record part-payments from parties and track the remaining amount they owe.</p>
+                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mt-1">Choose a party below and press Receive. Use Edit in Receipt History to correct an existing receipt.</p>
               </div>
               <div className="text-left sm:text-right">
                 <div className="text-[11px] font-semibold text-slate-500">Total Receipts Recorded</div>
@@ -807,6 +834,7 @@ export const Parties: React.FC = () => {
                     <th className="px-4 py-3">Mode</th>
                     <th className="px-4 py-3">Reference / Notes</th>
                     <th className="px-4 py-3">Balance Now</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
@@ -821,11 +849,19 @@ export const Parties: React.FC = () => {
                         <td className="px-4 py-3 uppercase">{payment.mode || '-'}</td>
                         <td className="px-4 py-3">{payment.reference_no || payment.notes || '-'}</td>
                         <td className="px-4 py-3 font-mono font-bold">₹{Math.max(0, balance).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <button type="button" onClick={() => openEditPayment(payment)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 text-xs font-bold" title="Edit this receipt">
+                            <Edit2 className="w-3.5 h-3.5" /> Edit
+                          </button>
+                          {canDelete && <button type="button" onClick={() => handleDeletePayment(payment.id)} className="ml-1 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 text-xs font-bold" title="Delete this receipt">
+                            <Trash2 className="w-3.5 h-3.5" /> Delete
+                          </button>}
+                        </td>
                       </tr>
                     );
                   })}
                   {payments.filter((p) => p.payment_type === 'received').length === 0 && (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">No received amounts recorded yet. Choose a party above to record the first receipt.</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">No received amounts recorded yet. Choose a party above to record the first receipt.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -852,7 +888,7 @@ export const Parties: React.FC = () => {
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Wallet className={`w-5 h-5 ${payDirection === 'received' ? 'text-emerald-600' : 'text-rose-600'}`} /> {payDirection === 'received' ? 'Receive Amount from Party' : 'Pay Supplier / Clear Outstanding'}
+                    <Wallet className={`w-5 h-5 ${payDirection === 'received' ? 'text-emerald-600' : 'text-rose-600'}`} /> {editingPayment ? 'Edit Payment Record' : payDirection === 'received' ? 'Receive Amount from Party' : 'Pay Supplier / Clear Outstanding'}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Party: {selectedParty.name}</p>
                 </div>
@@ -962,7 +998,7 @@ export const Parties: React.FC = () => {
                     type="submit"
                     className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-emerald-600/20 flex items-center gap-1.5"
                   >
-                    <Check className="w-3.5 h-3.5" /> {payDirection === 'received' ? 'Save Received Amount & Update Balance' : 'Save Payment & Update Balance'}
+                    <Check className="w-3.5 h-3.5" /> {editingPayment ? 'Save Changes & Update Balance' : payDirection === 'received' ? 'Save Received Amount & Update Balance' : 'Save Payment & Update Balance'}
                   </button>
                 </div>
               </form>
