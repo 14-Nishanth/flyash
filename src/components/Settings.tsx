@@ -54,6 +54,10 @@ export const Settings: React.FC = () => {
     canManageUsers,
     canDelete,
     currentUser,
+    syncError,
+    lastSyncedTime,
+    isSyncing,
+    syncWithCloud,
     parties,
     inwards,
     outwards,
@@ -162,6 +166,7 @@ export const Settings: React.FC = () => {
   const [newRole, setNewRole] = useState<UserRole>('operator');
   const [newPhone, setNewPhone] = useState('');
   const [userCreatedMsg, setUserCreatedMsg] = useState(false);
+  const [userActionError, setUserActionError] = useState('');
 
   // User Editing Modal State
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
@@ -305,8 +310,8 @@ export const Settings: React.FC = () => {
       setPasswordChangeMsg({ type: 'error', text: 'Passwords do not match. Please re-enter.' });
       return;
     }
-    if (myNewPassword.trim().length < 4) {
-      setPasswordChangeMsg({ type: 'error', text: 'Password must be at least 4 characters long.' });
+    if (myNewPassword.trim().length < 8) {
+      setPasswordChangeMsg({ type: 'error', text: 'Password must be at least 8 characters long.' });
       return;
     }
 
@@ -324,19 +329,24 @@ export const Settings: React.FC = () => {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUsername || !newPassword || !newName) return;
-    await addUser({
-      username: newUsername.trim().toLowerCase(),
-      password: newPassword.trim(),
-      name: newName.trim(),
-      role: newRole,
-      phone: newPhone.trim(),
-    });
-    setNewUsername('');
-    setNewPassword('');
-    setNewName('');
-    setNewPhone('');
-    setUserCreatedMsg(true);
-    setTimeout(() => setUserCreatedMsg(false), 3000);
+    setUserActionError('');
+    try {
+      await addUser({
+        username: newUsername.trim().toLowerCase(),
+        password: newPassword.trim(),
+        name: newName.trim(),
+        role: newRole,
+        phone: newPhone.trim(),
+      });
+      setNewUsername('');
+      setNewPassword('');
+      setNewName('');
+      setNewPhone('');
+      setUserCreatedMsg(true);
+      setTimeout(() => setUserCreatedMsg(false), 3000);
+    } catch (error) {
+      setUserActionError(error instanceof Error ? error.message : 'Could not create user.');
+    }
   };
 
   const openEditUserModal = (u: AppUser) => {
@@ -352,24 +362,27 @@ export const Settings: React.FC = () => {
   const handleSaveUserEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
-    await updateUser(editingUser.id, {
-      name: editName.trim(),
-      username: editUsername.trim().toLowerCase(),
-      password: editPassword.trim() || editingUser.password,
-      role: editRole,
-      phone: editPhone.trim(),
-    });
-    setEditModalOpen(false);
-    setEditingUser(null);
+    setUserActionError('');
+    try {
+      await updateUser(editingUser.id, {
+        name: editName.trim(),
+        username: editUsername.trim().toLowerCase(),
+        password: editPassword.trim() || undefined,
+        role: editRole,
+        phone: editPhone.trim(),
+      });
+      setEditModalOpen(false);
+      setEditingUser(null);
+    } catch (error) {
+      setUserActionError(error instanceof Error ? error.message : 'Could not update user.');
+    }
   };
 
   const handleDeleteUser = async (id: string, username: string) => {
-    if (username === 'admin' || username === 'owner') {
-      alert('Master admin/owner accounts cannot be removed.');
-      return;
-    }
+    setUserActionError('');
     if (window.confirm(`Are you sure you want to delete user account "${username}"?`)) {
-      await deleteUser(id);
+      try { await deleteUser(id); }
+      catch (error) { setUserActionError(error instanceof Error ? error.message : 'Could not delete user.'); }
     }
   };
 
@@ -911,7 +924,7 @@ export const Settings: React.FC = () => {
                   Project: laqpdlasfxearjtnnouu
                 </span>
               </div>
-              <p className="text-xs text-slate-500">PostgreSQL cloud storage with live table inspection & direct admin links</p>
+              <p className="text-xs text-slate-500">Shared, authenticated cloud records with live table inspection</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -942,8 +955,18 @@ export const Settings: React.FC = () => {
             <span>{dbCheckMsg}</span>
           </div>
           <span className="text-[11px] text-slate-500">
-            PostgreSQL • SSL Encrypted • Realtime Sync Active
+            {syncError ? `Sync needs attention: ${syncError}` : isSyncing ? "Synchronizing shared records…" : lastSyncedTime ? `Last synchronized at ${lastSyncedTime}` : "Sign in with an authorized company account to sync"}
           </span>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+          <div className="text-xs text-slate-600 dark:text-slate-300">
+            Cross-device business data uses the authenticated <code>app_records</code> store. Legacy tables remain untouched for compatibility.
+          </div>
+          <button type="button" onClick={() => { void syncWithCloud(); }} disabled={isSyncing}
+            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-2">
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} /> Sync Now
+          </button>
         </div>
 
         {/* Tabs: Table Direct Links vs In-App Live Table Viewer */}
@@ -956,7 +979,7 @@ export const Settings: React.FC = () => {
                 : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            <Layers className="w-4 h-4" /> 12 Cloud Tables & Direct Links
+            <Layers className="w-4 h-4" /> Legacy Tables & Shared Sync Store
           </button>
           <button
             onClick={() => {
