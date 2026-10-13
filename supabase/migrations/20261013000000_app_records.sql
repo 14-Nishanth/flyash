@@ -33,15 +33,20 @@ create policy "FlyAsh authenticated insert records"
   with check (
     (auth.jwt() -> 'app_metadata' ->> 'flyash_access') = 'true'
     and (updated_by is null or updated_by = auth.uid())
+    and (deleted_at is null or (auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','owner'))
   );
 
 drop policy if exists "FlyAsh authenticated update records" on public.app_records;
 create policy "FlyAsh authenticated update records"
   on public.app_records for update to authenticated
-  using ((auth.jwt() -> 'app_metadata' ->> 'flyash_access') = 'true')
+  using (
+    (auth.jwt() -> 'app_metadata' ->> 'flyash_access') = 'true'
+    and deleted_at is null
+  )
   with check (
     (auth.jwt() -> 'app_metadata' ->> 'flyash_access') = 'true'
     and (updated_by is null or updated_by = auth.uid())
+    and (deleted_at is null or (auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','owner'))
   );
 
 drop policy if exists "FlyAsh admin owner delete records" on public.app_records;
@@ -86,7 +91,7 @@ insert into public.app_records(collection,id,data,updated_at)
 select 'inwards', t.id::text,
        to_jsonb(t) || jsonb_build_object(
          'id', t.id::text,
-         'party_name', coalesce(substring(t.notes from '\\[Party:\\s*([^\\]]+)\\]'), 'Supplier')
+         'party_name', coalesce(substring(t.notes from '\[Party:\s*([^\]]+)\]'), 'Supplier')
        ),
        coalesce(t.created_at, now())
 from public.material_inward t
@@ -96,7 +101,7 @@ insert into public.app_records(collection,id,data,updated_at)
 select 'outwards', t.id::text,
        to_jsonb(t) || jsonb_build_object(
          'id', t.id::text,
-         'party_name', coalesce(substring(t.notes from '\\[Customer:\\s*([^\\]]+)\\]'), 'Customer')
+         'party_name', coalesce(substring(t.notes from '\[Customer:\s*([^\]]+)\]'), 'Customer')
        ),
        coalesce(t.created_at, now())
 from public.material_outward t
@@ -133,11 +138,11 @@ select 'partyAdjustments', t.id::text,
          'party_id', coalesce(t.party_id::text, ''),
          'party_name', coalesce(t.party_name, ''),
          'voucher_type', case when t.payment_type = 'received' then 'credit' else 'debit' end,
-         'category', coalesce(substring(t.notes from '\\[Voucher:\\s*(.+?)\\]'), 'Balance Adjustment'),
+         'category', coalesce(substring(t.notes from '\[Voucher:\s*(.+?)\]'), 'Balance Adjustment'),
          'amount', t.amount,
          'payment_mode', 'adjustment',
          'reference_no', coalesce(t.reference_no, ''),
-         'notes', trim(regexp_replace(coalesce(t.notes, ''), '\\[Voucher:\\s*.+?\\]', '', 'g')),
+         'notes', trim(regexp_replace(coalesce(t.notes, ''), '\[Voucher:\s*.+?\]', '', 'g')),
          'created_at', t.created_at
        ),
        coalesce(t.created_at, now())
