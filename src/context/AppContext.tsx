@@ -1022,12 +1022,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setWorkerGroups((prev) => [...prev, newGroup]);
+    await persistRecord('workerGroups', newGroup as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) await supabase.from('worker_groups').insert(newGroup);
   };
 
   const updateGroup = async (id: string, updated: Partial<WorkerGroup>) => {
+    const mergedGroup = { ...(workerGroups.find((g) => g.id === id) || {}), ...updated, id };
     setWorkerGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...updated } : g)));
+    await persistRecord('workerGroups', mergedGroup as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) await supabase.from('worker_groups').update(updated).eq('id', id);
   };
@@ -1038,6 +1041,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setWorkerGroups((prev) => prev.filter((g) => g.id !== id));
+    await removeCloudRecord('workerGroups', id);
     const supabase = getSupabaseClient();
     if (supabase) await supabase.from('worker_groups').delete().eq('id', id);
     return true;
@@ -1051,12 +1055,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setProductRates((prev) => [...prev, newProd]);
+    await persistRecord('productRates', newProd as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) await supabase.from('product_rates').insert(newProd);
   };
 
   const updateProductRate = async (id: string, updated: Partial<ProductRateMaster>) => {
+    const mergedRate = { ...(productRates.find((p) => p.id === id) || {}), ...updated, id };
     setProductRates((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
+    await persistRecord('productRates', mergedRate as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) await supabase.from('product_rates').update(updated).eq('id', id);
   };
@@ -1067,6 +1074,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setProductRates((prev) => prev.filter((p) => p.id !== id));
+    await removeCloudRecord('productRates', id);
     const supabase = getSupabaseClient();
     if (supabase) await supabase.from('product_rates').delete().eq('id', id);
     return true;
@@ -1080,6 +1088,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setParties((prev) => [newParty, ...prev]);
+    await persistRecord('parties', newParty as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1092,7 +1101,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateParty = async (id: string, updated: Partial<Party>) => {
+    const mergedParty = { ...(parties.find((p) => p.id === id) || {}), ...updated, id };
     setParties((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
+    await persistRecord('parties', mergedParty as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1110,6 +1121,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setParties((prev) => prev.filter((p) => p.id !== id));
+    await removeCloudRecord('parties', id);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1135,15 +1147,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (supabase) {
       try {
         const { data, error } = await supabase.from('material_inward').insert(sanitizeInwardForDb(newInward)).select();
-        if (data && data[0]) {
-          setInwards((prev) => prev.map((i) => (i.id === newInward.id ? { ...i, id: String(data[0].id) } : i)));
-        } else if (error) {
+        if (error) {
           console.error('Inward insert cloud sync error:', error.message);
         }
       } catch (e) {
         console.warn('Inward cloud sync exception:', e);
       }
     }
+    await persistRecord('inwards', newInward as unknown as Record<string, unknown>);
   };
 
   const updateInward = async (id: string, updated: Partial<MaterialInward>) => {
@@ -1151,7 +1162,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
     }
+    const mergedInward = { ...(inwards.find((i) => i.id === id) || {}), ...updated, id };
     setInwards((prev) => prev.map((i) => (i.id === id ? { ...i, ...updated } : i)));
+    await persistRecord('inwards', mergedInward as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1171,6 +1184,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setInwards((prev) => prev.filter((i) => i.id !== id));
+    await removeCloudRecord('inwards', id);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1199,15 +1213,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (supabase) {
       try {
         const { data, error } = await supabase.from('material_outward').insert(sanitizeOutwardForDb(newOutward)).select();
-        if (data && data[0]) {
-          setOutwards((prev) => prev.map((o) => (o.id === newOutward.id ? { ...o, id: String(data[0].id) } : o)));
-        } else if (error) {
+        if (error) {
           console.error('Outward insert cloud sync error:', error.message);
         }
       } catch (e) {
         console.warn('Outward cloud sync exception:', e);
       }
     }
+    await persistRecord('outwards', newOutward as unknown as Record<string, unknown>);
   };
 
   const updateOutward = async (id: string, updated: Partial<MaterialOutward>) => {
@@ -1215,7 +1228,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
     }
+    const mergedOutward = { ...(outwards.find((o) => o.id === id) || {}), ...updated, id };
     setOutwards((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+    await persistRecord('outwards', mergedOutward as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1235,6 +1250,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setOutwards((prev) => prev.filter((o) => o.id !== id));
+    await removeCloudRecord('outwards', id);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1259,6 +1275,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setPayments((prev) => [newPayment, ...prev]);
+    await persistRecord('payments', newPayment as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1275,7 +1292,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
     }
+    const mergedPayment = { ...(payments.find((p) => p.id === id) || {}), ...updated, id };
     setPayments((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
+    await persistRecord('payments', mergedPayment as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1292,6 +1311,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setPayments((prev) => prev.filter((p) => p.id !== id));
+    await removeCloudRecord('payments', id);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1313,6 +1333,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setPartyAdjustments((prev) => [newAdj, ...prev]);
+    await persistRecord('partyAdjustments', newAdj as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1341,7 +1362,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
     }
+    const mergedAdjustment = { ...(partyAdjustments.find((a) => a.id === id) || {}), ...updated, id };
     setPartyAdjustments((prev) => prev.map((a) => (a.id === id ? { ...a, ...updated } : a)));
+    await persistRecord('partyAdjustments', mergedAdjustment as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1361,6 +1384,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setPartyAdjustments((prev) => prev.filter((a) => a.id !== id));
+    await removeCloudRecord('partyAdjustments', id);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1380,6 +1404,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setJobs((prev) => [newJob, ...prev]);
+    await persistRecord('jobs', newJob as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1392,7 +1417,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateJob = async (id: string, updated: Partial<JobWageEntry>) => {
+    const mergedJob = { ...(jobs.find((j) => j.id === id) || {}), ...updated, id };
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...updated } : j)));
+    await persistRecord('jobs', mergedJob as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1409,6 +1436,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setJobs((prev) => prev.filter((j) => j.id !== id));
+    await removeCloudRecord('jobs', id);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1427,6 +1455,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: generateUuid(),
     };
     setEmployees((prev) => [...prev, newEmp]);
+    await persistRecord('employees', newEmp as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1439,7 +1468,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateEmployee = async (id: string, updated: Partial<Employee>) => {
+    const mergedEmployee = { ...(employees.find((e) => e.id === id) || {}), ...updated, id };
     setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
+    await persistRecord('employees', mergedEmployee as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1456,6 +1487,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setEmployees((prev) => prev.filter((e) => e.id !== id));
+    await removeCloudRecord('employees', id);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1481,10 +1513,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
+    const previousForDate = attendance.filter((a) => a.date === date);
     setAttendance((prev) => {
       const filtered = prev.filter((a) => a.date !== date);
       return [...filtered, ...newRecords];
     });
+    for (const oldRecord of previousForDate) await removeCloudRecord('attendance', oldRecord.id);
+    for (const record of newRecords) await persistRecord('attendance', record as unknown as Record<string, unknown>);
 
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -1509,6 +1544,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setAttendance((prev) => prev.filter((a) => a.date !== date));
+    for (const record of attendance.filter((a) => a.date === date)) await removeCloudRecord('attendance', record.id);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1539,6 +1575,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       created_at: new Date().toISOString(),
     };
     setExpenses((prev) => [newExpense, ...prev]);
+    await persistRecord('expenses', newExpense as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1558,7 +1595,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!updated.paid_to) updated.paid_to = party.name;
       }
     }
+    const mergedExpense = { ...(expenses.find((e) => e.id === id) || {}), ...updated, id };
     setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
+    await persistRecord('expenses', mergedExpense as unknown as Record<string, unknown>);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1575,6 +1614,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setExpenses((prev) => prev.filter((e) => e.id !== id));
+    await removeCloudRecord('expenses', id);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -1586,8 +1626,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const updateSettings = (newSettings: AlertSettings) => {
+  const updateSettings = async (newSettings: AlertSettings) => {
     setSettings(newSettings);
+    await persistRecord('settings', { ...newSettings, id: 'global' });
   };
 
   // Ledger Calculations: Credit = Party needs to pay me (Receivable), Debit = I need to pay party (Payable)
