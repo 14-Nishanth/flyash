@@ -6,13 +6,24 @@
 
 ---
 
-### 🌐 Live Application & Database Links
+### 📲 Download / Install FlyAsh Manager
 
-- 🚀 **Live Application (Web & Mobile)**: 👉 **[https://14-nishanth.github.io/flyash/](https://14-nishanth.github.io/flyash/)**
-- 🗄️ **Supabase Cloud Database Tables**: 👉 **[https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor](https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor)**
-- 🏢 **Supabase Project Dashboard**: 👉 **[https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu](https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu)**
+- 🚀 **[Open / Install FlyAsh Manager](https://14-nishanth.github.io/flyash/)** — official live app for mobile, tablet, and desktop.
+- 📦 **[Download project source ZIP](https://github.com/14-Nishanth/flyash/archive/refs/heads/main.zip)** — source code, not an Android APK.
+- 🧾 **[View releases and app packages](https://github.com/14-Nishanth/flyash/releases)** — APK downloads will appear here if a native Android package is published.
 
-*(Click the link above to view and manage all database tables directly in your browser!)*
+**Install on Android:** Open the live app link in Chrome → tap the ⋮ menu → choose **Install app** or **Add to Home screen**.
+
+**Install on iPhone/iPad:** Open the live app link in Safari → tap **Share** → **Add to Home Screen**.
+
+**Install on Windows/Desktop:** Open the live app in Chrome or Edge and use the install icon in the address bar or browser menu, when offered.
+
+> FlyAsh is currently an installable web app (PWA), not a native APK. Installation requires internet access for sign-in and live Supabase business data.
+
+### 🌐 Database Links
+
+- 🗄️ **Supabase Cloud Database Tables**: 👉 **[Open Table Editor](https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor)**
+- 🏢 **Supabase Project Dashboard**: 👉 **[Open Supabase project](https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu)**
 
 ---
 
@@ -54,9 +65,9 @@ Direct Table Editor:
 2. **Raw Material Expenses & Supplier Due Settlement:**
    - Buy materials (Fly Ash, Cement in bags/MT, Quarry Dust, Cool Dust) with full due, instant payment, or partial payment.
    - 1-Click **"Pay Outstanding Due"** to pay amounts toward supplier debts and instantly reduce remaining balance.
-3. **Mobile & Desktop Standalone App (Locked Zoom):**
-   - Locked fixed viewport scale preventing accidental zooming in/out.
-   - PWA support for standalone installation on Windows (Chrome/Edge) and Android/iOS.
+3. **Installable Mobile & Desktop App:**
+   - Installable PWA with phone-friendly bottom navigation and desktop sidebar.
+   - Supports standalone installation on Android, iOS, Windows, and compatible desktop browsers; standard pinch-to-zoom accessibility is enabled.
 4. **Full Edit & Delete Across All Modules:** Inward raw materials, outward customer dispatches, parties, piece-rate production logs, worker profiles, attendance logs, and operational expenses.
 5. **Role-Based Access Control:** Administrators can create new user logins for staff. Operators are permitted to add/edit data, while delete operations are strictly locked for administrator accounts.
 6. **Automated Duplicate Warning Popup:** Prevents accidental double entry of materials, vehicles, parties, expenses, or production batches with an interactive popup dialog.
