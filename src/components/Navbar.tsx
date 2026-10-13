@@ -44,15 +44,6 @@ export const MENU_OPTIONS = [
     bg: 'bg-sky-500/10 border-sky-500/20'
   },
   { 
-    id: 'profit-margin', 
-    label: 'Profit Margin', 
-    shortLabel: 'Margin',
-    subtitle: 'Unit cost & profit margin estimator',
-    icon: Calculator, 
-    color: 'text-emerald-500',
-    bg: 'bg-emerald-500/10 border-emerald-500/20'
-  },
-  { 
     id: 'materials', 
     label: 'Materials & Stock', 
     shortLabel: 'Materials',
@@ -114,6 +105,15 @@ export const MENU_OPTIONS = [
     icon: Sliders, 
     color: 'text-purple-500',
     bg: 'bg-purple-500/10 border-purple-500/20'
+  },
+  { 
+    id: 'profit-margin', 
+    label: 'Profit Margin', 
+    shortLabel: 'Margin',
+    subtitle: 'Unit cost & profit margin estimator',
+    icon: Calculator, 
+    color: 'text-emerald-500',
+    bg: 'bg-emerald-500/10 border-emerald-500/20'
   },
 ];
 
