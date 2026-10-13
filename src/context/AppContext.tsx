@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   Party,
   MaterialInward,
@@ -16,6 +16,7 @@ import {
   ProductRateMaster,
 } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
+import { CLOUD_COLLECTIONS, CloudCollection, getCloudRole, hasCloudAccess, readCloudRecords, saveCloudRecord, softDeleteCloudRecord } from '../lib/cloudRecords';
 import { trackFailedLoginAttempt, resetFailedLoginAttempts } from '../lib/notificationService';
 
 export interface UserSession {
@@ -108,6 +109,7 @@ interface AppContextType {
   syncWithCloud: () => Promise<boolean>;
   isSyncing: boolean;
   lastSyncedTime: string | null;
+  syncError: string | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -467,6 +469,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Cloud sync status state
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncedTime, setLastSyncedTime] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const syncInFlightRef = useRef(false);
 
   // Authentication Session - Requires login on every open/load per user preference
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
@@ -544,84 +548,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const canDelete = currentUser?.role === 'admin' || currentUser?.role === 'owner';
   const canManageUsers = currentUser?.role === 'admin' || currentUser?.role === 'owner';
 
-  // Login handler
+  // Shared data requires a real Supabase Auth identity; browser-only demo credentials cannot sync securely.
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    const cleanUser = username.trim().toLowerCase();
-    const cleanPass = password.trim();
-
-    const foundUser = users.find(
-      (u) => u.username.toLowerCase() === cleanUser && u.password === cleanPass
-    );
-    if (foundUser) {
-      resetFailedLoginAttempts();
-      const session: UserSession = {
-        id: foundUser.id,
-        username: foundUser.username,
-        name: foundUser.name,
-        role: foundUser.role,
-        phone: foundUser.phone,
-      };
-      setCurrentUser(session);
-      localStorage.setItem('flyash_user_session', JSON.stringify(session));
-      return { success: true };
-    }
-
-    if (cleanUser === 'admin' && cleanPass === 'admin123') {
-      resetFailedLoginAttempts();
-      const session: UserSession = { username: 'admin', name: 'Plant Administrator', role: 'admin' };
-      setCurrentUser(session);
-      localStorage.setItem('flyash_user_session', JSON.stringify(session));
-      return { success: true };
-    }
-    if (cleanUser === 'owner' && cleanPass === 'owner123') {
-      resetFailedLoginAttempts();
-      const session: UserSession = { username: 'owner', name: 'Plant Owner', role: 'owner' };
-      setCurrentUser(session);
-      localStorage.setItem('flyash_user_session', JSON.stringify(session));
-      return { success: true };
-    }
-    if (cleanUser === 'operator' && cleanPass === 'operator123') {
-      resetFailedLoginAttempts();
-      const session: UserSession = { username: 'operator', name: 'Data Entry Operator', role: 'operator' };
-      setCurrentUser(session);
-      localStorage.setItem('flyash_user_session', JSON.stringify(session));
-      return { success: true };
-    }
-
+    const email = username.trim().toLowerCase();
+    if (!email.includes('@')) return { success: false, error: 'Use your company email address. Local demo accounts cannot access shared cloud data.' };
     const supabase = getSupabaseClient();
-    if (supabase && cleanUser.includes('@')) {
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: cleanUser,
-          password: cleanPass,
-        });
-        if (data?.user && !error) {
-          resetFailedLoginAttempts();
-          const session: UserSession = {
-            username: data.user.email || cleanUser,
-            name: data.user.user_metadata?.name || 'Plant Staff',
-            role: (data.user.user_metadata?.role as UserRole) || 'operator',
-          };
-          setCurrentUser(session);
-          localStorage.setItem('flyash_user_session', JSON.stringify(session));
-          return { success: true };
-        }
-      } catch (err) {
-        console.warn('Supabase auth error:', err);
-      }
-    }
-
-    // Trigger security alert on failed login attempt
+    if (!supabase) return { success: false, error: 'Cloud database is not configured. Check the Supabase URL and publishable key.' };
     try {
-      await trackFailedLoginAttempt(settings, cleanUser);
-    } catch (e) {
-      console.warn('Failed login notification error:', e);
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error || !data.user) return { success: false, error: error?.message || 'Sign-in failed. Check your email and password.' };
+      if (!hasCloudAccess(data.user)) {
+        await supabase.auth.signOut();
+        return { success: false, error: 'This account is not enabled for FlyAsh cloud access. An administrator must set app_metadata.flyash_access=true and assign a role in Supabase.' };
+      }
+      resetFailedLoginAttempts();
+      const session: UserSession = { id: data.user.id, username: data.user.email || email, name: data.user.user_metadata?.name || data.user.email || 'Plant Staff', role: getCloudRole(data.user), phone: data.user.user_metadata?.phone };
+      setCurrentUser(session);
+      localStorage.setItem('flyash_user_session', JSON.stringify(session));
+      setSyncError(null);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unexpected sign-in error.' };
     }
-
-    return { success: false, error: 'Invalid credentials. Please check your username and password.' };
   };
 
   const logout = () => {
+    const supabase = getSupabaseClient();
+    if (supabase) void supabase.auth.signOut();
     setCurrentUser(null);
     localStorage.removeItem('flyash_user_session');
   };
@@ -681,186 +634,144 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Core Cloud Sync Function (Bi-Directional, Realtime & Multi-Device)
-  const syncWithCloud = async (): Promise<boolean> => {
+  const pendingWritesKey = 'flyash_pending_cloud_writes';
+  type PendingCloudWrite = { collection: CloudCollection; id: string; data?: Record<string, unknown>; deleted: boolean };
+  const updatePendingWrite = (entry: PendingCloudWrite) => {
+    try { const pending = JSON.parse(localStorage.getItem(pendingWritesKey) || '[]') as PendingCloudWrite[]; localStorage.setItem(pendingWritesKey, JSON.stringify([...pending.filter((x) => !(x.collection === entry.collection && x.id === entry.id)), entry])); }
+    catch (error) { console.error('Could not queue cloud write:', error); }
+  };
+  const clearPendingWrite = (collection: CloudCollection, id: string) => {
+    try { const pending = JSON.parse(localStorage.getItem(pendingWritesKey) || '[]') as PendingCloudWrite[]; localStorage.setItem(pendingWritesKey, JSON.stringify(pending.filter((x) => !(x.collection === collection && x.id === id)))); }
+    catch (error) { console.error('Could not clear queued cloud write:', error); }
+  };
+  const persistRecord = async (collection: CloudCollection, record: Record<string, unknown>) => {
+    const id = String(record.id ?? '');
+    if (!id) { setSyncError(`Cannot sync ${collection}: record ID is missing.`); return false; }
     const supabase = getSupabaseClient();
-    if (!supabase) return false;
-    setIsSyncing(true);
-
-    try {
-      // 1. Parties: Fetch from cloud & merge
-      const { data: pData, error: pError } = await supabase.from('parties').select('*').order('created_at', { ascending: false });
-      if (pError) throw new Error(`Cloud sync failed while reading parties: ${pError.message}`);
-      if (pData) {
-        setParties((localParties) => {
-          const cloudIds = new Set(pData.map((p: any) => p.id));
-          const merged = [...pData];
-          // Backfill any local parties not yet in Supabase
-          localParties.forEach((lp) => {
-            if (!cloudIds.has(lp.id)) {
-              merged.push(lp);
-              supabase.from('parties').insert(sanitizePartyForDb(lp)).then();
-            }
-          });
-          return merged;
-        });
-      }
-
-      // 2. Expenses: Fetch from cloud & merge
-      const { data: expData, error: expError } = await supabase.from('expenses').select('*').order('created_at', { ascending: false });
-      if (expError) throw new Error(`Cloud sync failed while reading expenses: ${expError.message}`);
-      if (expData) {
-        setExpenses((localExp) => {
-          const cloudIds = new Set(expData.map((e: any) => e.id));
-          const merged = [...expData];
-          localExp.forEach((le) => {
-            if (!cloudIds.has(le.id)) {
-              merged.push(le);
-              supabase.from('expenses').insert(sanitizeExpenseForDb(le)).then();
-            }
-          });
-          return merged;
-        });
-      }
-
-      // 3. Payments (including mirrored vouchers): Fetch from cloud & merge
-      const { data: payData, error: payError } = await supabase.from('payments').select('*').order('created_at', { ascending: false });
-      if (payError) throw new Error(`Cloud sync failed while reading payments: ${payError.message}`);
-      if (payData) {
-        setPayments((localPay) => {
-          const cloudIds = new Set(payData.map((p: any) => p.id));
-          const merged = [...payData];
-          localPay.forEach((lp) => {
-            if (!cloudIds.has(lp.id)) {
-              merged.push(lp);
-              supabase.from('payments').insert(sanitizePaymentForDb(lp)).then();
-            }
-          });
-          return merged;
-        });
-
-        // Mirror any payments marked as adjustment back to partyAdjustments
-        const cloudAdjs: PartyAdjustment[] = payData
-          .filter((p: any) => p.mode === 'adjustment' || p.notes?.includes('[Voucher:'))
-          .map((p: any) => ({
-            id: p.id,
-            date: p.date,
-            party_id: p.party_id || '',
-            party_name: p.party_name || '',
-            voucher_type: p.payment_type === 'received' ? 'credit' : 'debit',
-            category: p.notes?.match(/\[Voucher:\s*(.+?)\]/)?.[1] || 'Balance Adjustment',
-            amount: Number(p.amount) || 0,
-            payment_mode: 'adjustment',
-            reference_no: p.reference_no || '',
-            notes: p.notes?.replace(/\[Voucher:\s*(.+?)\]/, '').trim() || '',
-            created_at: p.created_at,
-          }));
-
-        if (cloudAdjs.length > 0) {
-          setPartyAdjustments((prev) => {
-            const adjIds = new Set(prev.map((a) => a.id));
-            const newAdjs = cloudAdjs.filter((ca) => !adjIds.has(ca.id));
-            return [...newAdjs, ...prev];
-          });
-        }
-      }
-
-      // 4. Material Inward: Fetch from cloud
-      const { data: inData, error: inError } = await supabase.from('material_inward').select('*').order('id', { ascending: false });
-      if (inError) throw new Error(`Cloud sync failed while reading material inward: ${inError.message}`);
-      if (inData) {
-        setInwards(
-          inData.map((i: any) => ({
-            ...i,
-            id: String(i.id),
-            party_name: i.notes?.match(/\[Party:\s*(.+?)\]/)?.[1] || i.party_name || 'Supplier',
-          }))
-        );
-      }
-
-      // 5. Material Outward: Fetch from cloud
-      const { data: outData, error: outError } = await supabase.from('material_outward').select('*').order('id', { ascending: false });
-      if (outError) throw new Error(`Cloud sync failed while reading material outward: ${outError.message}`);
-      if (outData) {
-        setOutwards(
-          outData.map((o: any) => ({
-            ...o,
-            id: String(o.id),
-            party_name: o.notes?.match(/\[Customer:\s*(.+?)\]/)?.[1] || o.party_name || 'Customer',
-          }))
-        );
-      }
-
-      // 6. Job Wage Entries: Fetch from cloud
-      const { data: jobData, error: jobError } = await supabase.from('job_wage_entries').select('*').order('created_at', { ascending: false });
-      if (jobError) throw new Error(`Cloud sync failed while reading production jobs: ${jobError.message}`);
-      if (jobData) {
-        setJobs(jobData);
-      }
-
-      // 7. Employees: Fetch from cloud
-      const { data: empData, error: empError } = await supabase.from('employees').select('*').order('name', { ascending: true });
-      if (empError) throw new Error(`Cloud sync failed while reading employees: ${empError.message}`);
-      if (empData) {
-        setEmployees(empData);
-      }
-
-      // 8. Attendance: Fetch from cloud
-      const { data: attData, error: attError } = await supabase.from('attendance').select('*').order('date', { ascending: false });
-      if (attError) throw new Error(`Cloud sync failed while reading attendance: ${attError.message}`);
-      if (attData) {
-        setAttendance(attData.map((a: any) => ({ ...a, id: String(a.id) })));
-      }
-
-      setLastSyncedTime(new Date().toLocaleTimeString('en-IN'));
-      return true;
-    } catch (err) {
-      console.warn('Supabase sync dual-mode resilience:', err);
-      return false;
-    } finally {
-      setIsSyncing(false);
+    if (!supabase) { updatePendingWrite({ collection, id, data: record, deleted: false }); setSyncError('Cloud database is not configured. Changes are queued on this device.'); return false; }
+    try { await saveCloudRecord(supabase, collection, record); clearPendingWrite(collection, id); setSyncError(null); return true; }
+    catch (error) {
+      updatePendingWrite({ collection, id, data: record, deleted: false });
+      const message = error instanceof Error ? error.message : 'Could not save the change to the cloud.';
+      setSyncError(`${message} The change is queued on this device and will retry.`);
+      console.error('Cloud save failed:', message); return false;
+    }
+  };
+  const removeCloudRecord = async (collection: CloudCollection, id: string) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) { updatePendingWrite({ collection, id, deleted: true }); setSyncError('Cloud database is not configured. The delete is queued on this device.'); return false; }
+    try { await softDeleteCloudRecord(supabase, collection, id); clearPendingWrite(collection, id); setSyncError(null); return true; }
+    catch (error) {
+      updatePendingWrite({ collection, id, deleted: true });
+      const message = error instanceof Error ? error.message : 'Could not delete the record from the cloud.';
+      setSyncError(`${message} The delete is queued on this device and will retry.`);
+      console.error('Cloud delete failed:', message); return false;
     }
   };
 
-  // Realtime multi-device cloud synchronization & lifecycle listeners
-  useEffect(() => {
+  const syncWithCloud = async (): Promise<boolean> => {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase) { setSyncError('Cloud database is not configured.'); return false; }
+    if (syncInFlightRef.current) return false;
+    syncInFlightRef.current = true; setIsSyncing(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw new Error(`Cloud authentication failed: ${authError.message}`);
+      if (!authData.user || !hasCloudAccess(authData.user)) throw new Error('Sign in with an authorized company account to sync across devices.');
+      let pending: PendingCloudWrite[] = [];
+      try { pending = JSON.parse(localStorage.getItem(pendingWritesKey) || '[]'); } catch { pending = []; }
+      for (const item of pending) {
+        try {
+          if (item.deleted) await softDeleteCloudRecord(supabase, item.collection, item.id);
+          else if (item.data) await saveCloudRecord(supabase, item.collection, item.data);
+          clearPendingWrite(item.collection, item.id);
+        } catch (error) { setSyncError(error instanceof Error ? error.message : 'A queued change could not be synchronized.'); }
+      }
+      const rows = await readCloudRecords(supabase);
+      const rowKeys = new Set(rows.map((row) => `${row.collection}::${row.id}`));
+      const byCollection = new Map<CloudCollection, typeof rows>();
+      for (const collection of CLOUD_COLLECTIONS) byCollection.set(collection, rows.filter((row) => row.collection === collection));
+      const local: Record<CloudCollection, Record<string, unknown>[]> = {
+        parties: parties as unknown as Record<string, unknown>[], inwards: inwards as unknown as Record<string, unknown>[],
+        outwards: outwards as unknown as Record<string, unknown>[], payments: payments as unknown as Record<string, unknown>[],
+        partyAdjustments: partyAdjustments as unknown as Record<string, unknown>[], jobs: jobs as unknown as Record<string, unknown>[],
+        employees: employees as unknown as Record<string, unknown>[], attendance: attendance as unknown as Record<string, unknown>[],
+        expenses: expenses as unknown as Record<string, unknown>[], workerGroups: workerGroups as unknown as Record<string, unknown>[],
+        productRates: productRates as unknown as Record<string, unknown>[], settings: [{ ...settings, id: 'global' } as unknown as Record<string, unknown>],
+      };
+      const merged = {} as Record<CloudCollection, Record<string, unknown>[]>;
+      for (const collection of CLOUD_COLLECTIONS) {
+        const collectionRows = byCollection.get(collection) || [];
+        const activeCloud = collectionRows.filter((row) => !row.deleted_at).map((row) => ({ ...(row.data || {}), id: String(row.id) }));
+        const localOnly = local[collection].filter((record) => {
+          const id = record.id == null ? '' : String(record.id);
+          return id !== '' && !rowKeys.has(`${collection}::${id}`);
+        });
+        for (const record of localOnly) await saveCloudRecord(supabase, collection, record);
+        merged[collection] = [...activeCloud, ...localOnly];
+      }
+      setParties(merged.parties as unknown as Party[]);
+      setInwards(merged.inwards.map((r) => ({ ...r, id: String(r.id), party_id: String(r.party_id ?? '') })) as unknown as MaterialInward[]);
+      setOutwards(merged.outwards.map((r) => ({ ...r, id: String(r.id), party_id: r.party_id == null ? undefined : String(r.party_id) })) as unknown as MaterialOutward[]);
+      setPayments(merged.payments as unknown as Payment[]); setPartyAdjustments(merged.partyAdjustments as unknown as PartyAdjustment[]);
+      setJobs(merged.jobs as unknown as JobWageEntry[]); setEmployees(merged.employees as unknown as Employee[]);
+      setAttendance(merged.attendance.map((r) => ({ ...r, id: String(r.id), employee_id: String(r.employee_id ?? '') })) as unknown as AttendanceRecord[]);
+      setExpenses(merged.expenses as unknown as Expense[]); setWorkerGroups(merged.workerGroups as unknown as WorkerGroup[]);
+      setProductRates(merged.productRates as unknown as ProductRateMaster[]);
+      if (merged.settings.length > 0) {
+        const cloudSettings = merged.settings[0] as unknown as AlertSettings & { id?: string };
+        const { id: _ignored, ...withoutId } = cloudSettings; setSettings({ ...DEFAULT_SETTINGS, ...withoutId });
+      }
+      setLastSyncedTime(new Date().toLocaleTimeString('en-IN'));
+      const remaining = JSON.parse(localStorage.getItem(pendingWritesKey) || '[]') as PendingCloudWrite[];
+      if (remaining.length === 0) setSyncError(null);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cloud sync failed unexpectedly.';
+      setSyncError(message); console.error('FlyAsh cloud sync failed:', message); return false;
+    } finally { syncInFlightRef.current = false; setIsSyncing(false); }
+  };
 
-    // 1. Initial Sync
-    syncWithCloud();
+  useEffect(() => {
+    const supabase = getSupabaseClient(); if (!supabase) return;
+    let active = true;
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) { setSyncError(`Could not restore sign-in session: ${error.message}`); return; }
+      const user = data.session?.user;
+      if (user && hasCloudAccess(user)) {
+        setCurrentUser({ id: user.id, username: user.email || '', name: user.user_metadata?.name || user.email || 'Plant Staff', role: getCloudRole(user), phone: user.user_metadata?.phone });
+        void syncWithCloud();
+      } else setCurrentUser(null);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      const user = session?.user;
+      if (user && hasCloudAccess(user)) {
+        setCurrentUser({ id: user.id, username: user.email || '', name: user.user_metadata?.name || user.email || 'Plant Staff', role: getCloudRole(user), phone: user.user_metadata?.phone });
+        window.setTimeout(() => { if (active) void syncWithCloud(); }, 0);
+      } else setCurrentUser(null);
+    });
+    return () => { active = false; listener.subscription.unsubscribe(); };
+  }, []);
 
-    // 2. Realtime WebSocket Channel: Reacts instantly whenever Mobile or Laptop makes a change
+  useEffect(() => {
+    const supabase = getSupabaseClient(); if (!supabase) return;
     let channel: any = null;
     try {
-      channel = supabase
-        .channel('plant-realtime-sync')
-        .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-          syncWithCloud();
-        })
-        .subscribe();
-    } catch (e) {
-      console.warn('Supabase realtime subscription error:', e);
-    }
-
-    // 3. Tab Focus & Page Visibility Listeners (instantly sync when switching between devices/apps)
-    const handleFocus = () => syncWithCloud();
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        syncWithCloud();
-      }
-    };
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    // 4. Background Periodic Sync (every 20 seconds)
-    const interval = setInterval(syncWithCloud, 20000);
-
+      channel = supabase.channel('flyash-app-records-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_records' }, () => { void syncWithCloud(); })
+        .subscribe((status: string) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setSyncError('Realtime is unavailable. Automatic refresh will retry; check the Supabase Realtime publication if this persists.');
+        });
+    } catch (error) { setSyncError(error instanceof Error ? error.message : 'Realtime subscription could not start.'); }
+    const focus = () => { void syncWithCloud(); };
+    const visibility = () => { if (document.visibilityState === 'visible') void syncWithCloud(); };
+    window.addEventListener('focus', focus); document.addEventListener('visibilitychange', visibility);
+    const interval = window.setInterval(() => { void syncWithCloud(); }, 30000);
     return () => {
-      if (channel) supabase.removeChannel(channel);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibility);
-      clearInterval(interval);
+      if (channel) void supabase.removeChannel(channel);
+      window.removeEventListener('focus', focus); document.removeEventListener('visibilitychange', visibility); window.clearInterval(interval);
     };
   }, []);
 
@@ -1879,6 +1790,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         syncWithCloud,
         isSyncing,
         lastSyncedTime,
+        syncError,
       }}
     >
       {children}
