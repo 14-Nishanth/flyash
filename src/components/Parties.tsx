@@ -52,6 +52,7 @@ export const Parties: React.FC = () => {
   const [ledgerModalOpen, setLedgerModalOpen] = useState(false);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
   const [editingParty, setEditingParty] = useState<Party | null>(null);
+  const [activeSection, setActiveSection] = useState<'parties' | 'received'>('parties');
   const [filterType, setFilterType] = useState<'all' | 'credit' | 'debit' | 'customer' | 'supplier'>('all');
   const [ledgerFilter, setLedgerFilter] = useState<'all' | 'credit' | 'debit' | 'payment'>('all');
 
@@ -480,6 +481,23 @@ export const Parties: React.FC = () => {
         </div>
       </div>
 
+      {/* Parties / Received sections */}
+      <div className="flex gap-2 p-1.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <button
+          onClick={() => setActiveSection('parties')}
+          className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition ${activeSection === 'parties' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          <Users className="w-4 h-4" /> Parties
+        </button>
+        <button
+          onClick={() => setActiveSection('received')}
+          className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition ${activeSection === 'received' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+        >
+          <ArrowDownLeft className="w-4 h-4" /> Received
+          <span className={`px-2 py-0.5 rounded-full text-[10px] ${activeSection === 'received' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'}`}>{payments.filter((p) => p.payment_type === 'received').length}</span>
+        </button>
+      </div>
+
       {/* KPI Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/50 shadow-sm flex items-center justify-between">
@@ -530,6 +548,8 @@ export const Parties: React.FC = () => {
         </div>
       </div>
 
+      {activeSection === 'parties' && (
+      <>
       {/* Filter Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex flex-wrap gap-1.5">
@@ -732,6 +752,87 @@ export const Parties: React.FC = () => {
           </table>
         </div>
       </div>
+
+      </>
+      )}
+
+      {/* Received section: record and review customer receipts */}
+      {activeSection === 'received' && (
+        <div className="space-y-5">
+          <div className="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl p-4 sm:p-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">Received Amounts</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Record part-payments from parties and track the remaining amount they owe.</p>
+              </div>
+              <div className="text-left sm:text-right">
+                <div className="text-[11px] font-semibold text-slate-500">Total Receipts Recorded</div>
+                <div className="text-xl font-extrabold font-mono text-emerald-600">₹{payments.filter((p) => p.payment_type === 'received').reduce((sum, p) => sum + p.amount, 0).toLocaleString('en-IN')}</div>
+              </div>
+            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Record a receipt from a party</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {parties.map((party) => {
+                const balance = calculatePartyBalance(party.id);
+                return (
+                  <div key={party.id} className="border border-slate-200 dark:border-slate-700 rounded-xl p-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-slate-900 dark:text-white truncate">{party.name}</div>
+                      <div className="text-[11px] text-slate-500 mt-1">Outstanding: <span className={balance > 0 ? 'font-bold text-emerald-600' : 'font-semibold'}>₹{Math.max(0, balance).toLocaleString('en-IN')}</span></div>
+                    </div>
+                    <button
+                      onClick={() => openQuickPay(party, 'received')}
+                      className="shrink-0 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1"
+                    >
+                      <ArrowDownLeft className="w-3.5 h-3.5" /> Receive
+                    </button>
+                  </div>
+                );
+              })}
+              {parties.length === 0 && <p className="text-sm text-slate-500 py-4">Add a party before recording a receipt.</p>}
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="font-bold text-slate-900 dark:text-white">Receipt History</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                <thead className="text-xs uppercase bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-semibold">
+                  <tr>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Party</th>
+                    <th className="px-4 py-3">Amount Received</th>
+                    <th className="px-4 py-3">Mode</th>
+                    <th className="px-4 py-3">Reference / Notes</th>
+                    <th className="px-4 py-3">Balance Now</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                  {[...payments].filter((p) => p.payment_type === 'received').sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((payment) => {
+                    const party = parties.find((p) => p.id === payment.party_id);
+                    const balance = party ? calculatePartyBalance(party.id) : 0;
+                    return (
+                      <tr key={payment.id}>
+                        <td className="px-4 py-3 whitespace-nowrap">{payment.date}</td>
+                        <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{party?.name || payment.party_name || 'Unknown party'}</td>
+                        <td className="px-4 py-3 font-mono font-extrabold text-emerald-600">₹{payment.amount.toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 uppercase">{payment.mode || '-'}</td>
+                        <td className="px-4 py-3">{payment.reference_no || payment.notes || '-'}</td>
+                        <td className="px-4 py-3 font-mono font-bold">₹{Math.max(0, balance).toLocaleString('en-IN')}</td>
+                      </tr>
+                    );
+                  })}
+                  {payments.filter((p) => p.payment_type === 'received').length === 0 && (
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">No received amounts recorded yet. Choose a party above to record the first receipt.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Pay Party Modal */}
       {payModalOpen && selectedParty && (() => {
