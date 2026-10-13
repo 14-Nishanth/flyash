@@ -15,11 +15,11 @@
 
 ## Live changes verified
 
-- The additive `app_records` migration has been applied to Supabase project `laqpdlasfxearjtnnouu`.
+- The additive migrations have been applied to Supabase project `laqpdlasfxearjtnnouu`.
 - Realtime publication membership is enabled for `public.app_records`.
-- The new table has authenticated-only policies gated by server-controlled app metadata.
-- The migration copied 8 existing party records and 4 existing employee records into `app_records`.
-- The original `parties` and `employees` source tables still contain 8 and 4 rows respectively. No table was dropped or truncated.
+- The new table has authenticated-only policies gated by server-controlled app metadata; SQL privilege checks confirmed the `anon` role has no SELECT or INSERT grants on `app_records`.
+- The shared store contains 10 party records, 5 employee records, and one safe settings record. It imported the 8 plural parties, 4 plural employees, 2 legacy parties, and 1 legacy employee using conflict-safe inserts.
+- Original source table counts remain unchanged: 8 plural parties, 4 plural employees, 2 legacy parties, 1 legacy employee, and 1 legacy settings row. No table was dropped or truncated.
 - The `manage-users` Edge Function is deployed with JWT verification enabled.
 - CI build passed on the branch before the most recent Settings-table-browser update; a fresh run is pending.
 
