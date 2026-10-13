@@ -742,8 +742,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const user = session?.user;
       if (user && hasCloudAccess(user)) {
         setCurrentUser({ id: user.id, username: user.email || '', name: user.user_metadata?.name || user.email || 'Plant Staff', role: getCloudRole(user), phone: user.user_metadata?.phone });
-        void refreshUsers(user);
-        window.setTimeout(() => { if (active) void syncWithCloudRef.current(); }, 0);
+        // Defer Supabase API calls until the Auth callback releases its internal lock.
+        window.setTimeout(() => {
+          if (active) {
+            void refreshUsers(user);
+            void syncWithCloudRef.current();
+          }
+        }, 0);
       } else setCurrentUser(null);
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
