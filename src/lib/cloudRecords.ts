@@ -52,8 +52,13 @@ async function requireSignedInUser(supabase: SupabaseClient) {
   if (error) throw new Error(`Cloud authentication failed: ${error.message}`);
   if (!data.user) throw new Error('Sign in with your company account to sync data across devices.');
   const metadata = data.user.app_metadata || {};
-  if (metadata.flyash_access !== true && metadata.flyash_access !== 'true') {
-    throw new Error('This account has not been granted FlyAsh cloud access. Ask the administrator to enable flyash_access in Supabase Auth app metadata.');
+  // The role is also server-controlled Auth app metadata. Accept admin/owner
+  // as an explicit grant in case an existing user's access flag was not
+  // included in an older JWT, while continuing to reject ordinary accounts.
+  const role = String(metadata.role || '').toLowerCase();
+  const accessGranted = metadata.flyash_access === true || metadata.flyash_access === 'true';
+  if (!accessGranted && role !== 'admin' && role !== 'owner') {
+    throw new Error('This account has not been granted FlyAsh cloud access. Ask the administrator to enable access in Supabase Auth app metadata.');
   }
   return data.user;
 }
@@ -132,7 +137,11 @@ export async function softDeleteCloudRecord(
 
 export function hasCloudAccess(user: { app_metadata?: Record<string, unknown> } | null | undefined): boolean {
   const metadata = user?.app_metadata || {};
-  return metadata.flyash_access === true || metadata.flyash_access === 'true';
+  const role = String(metadata.role || '').toLowerCase();
+  return metadata.flyash_access === true ||
+    metadata.flyash_access === 'true' ||
+    role === 'admin' ||
+    role === 'owner';
 }
 
 export function getCloudRole(user: { app_metadata?: Record<string, unknown> } | null | undefined): 'admin' | 'owner' | 'operator' {
