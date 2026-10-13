@@ -5,8 +5,8 @@ import { Boxes, Lock, User, ArrowRight, Eye, EyeOff, ShieldCheck, Sun, Moon, Dat
 export const Login: React.FC = () => {
   const { login, theme, toggleTheme } = useApp();
 
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,11 +23,7 @@ export const Login: React.FC = () => {
     }
   };
 
-  const autofill = (u: string, p: string) => {
-    setUsername(u);
-    setPassword(p);
-    setErrorMsg('');
-  };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 transition-colors relative">
@@ -68,7 +64,7 @@ export const Login: React.FC = () => {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Username or Staff Account
+              Company Email Address
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -79,7 +75,7 @@ export const Login: React.FC = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                placeholder="admin / operator"
+                placeholder="you@company.com"
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500 font-medium"
               />
             </div>
@@ -127,35 +123,10 @@ export const Login: React.FC = () => {
           </button>
         </form>
 
-        {/* Quick Demo Autofill Credentials */}
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
-          <div className="text-[11px] text-slate-500 text-center font-semibold">Quick Role Sign-In:</div>
-          <div className="grid grid-cols-3 gap-1.5">
-            <button
-              type="button"
-              onClick={() => autofill('admin', 'admin123')}
-              className="px-2 py-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-[10px] font-bold text-purple-700 dark:text-purple-300 border border-slate-200 dark:border-slate-700 transition"
-              title="Admin: Full Access"
-            >
-              Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => autofill('owner', 'owner123')}
-              className="px-2 py-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-[10px] font-bold text-amber-700 dark:text-amber-300 border border-slate-200 dark:border-slate-700 transition"
-              title="Owner: Full Access"
-            >
-              Owner
-            </button>
-            <button
-              type="button"
-              onClick={() => autofill('operator', 'operator123')}
-              className="px-2 py-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-[10px] font-bold text-blue-700 dark:text-blue-300 border border-slate-200 dark:border-slate-700 transition"
-              title="Data Entry Operator: Enter & Edit, Cannot Delete"
-            >
-              Operator
-            </button>
-          </div>
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+          <p className="text-xs leading-5 text-slate-500 dark:text-slate-400 text-center">
+            Sign in with your Supabase Auth company account. Cloud access must be enabled by the administrator; demo passwords are disabled.
+          </p>
         </div>
 
         <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center gap-2">
