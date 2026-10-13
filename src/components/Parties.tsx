@@ -1393,7 +1393,7 @@ export const Parties: React.FC = () => {
                     <Printer className="w-4 h-4" /> Print
                   </button>
                   <button
-                    onClick={() => openQuickPay(selectedParty)}
+                    onClick={() => openQuickPay(selectedParty, 'paid')}
                     className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1"
                   >
                     <Wallet className="w-3.5 h-3.5" /> Pay Due
