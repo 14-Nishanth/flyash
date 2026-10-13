@@ -2,13 +2,13 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="./icons/flyash.svg" />
     
     <!-- Locked Viewport: Prevents Zoom In / Zoom Out & Input Focus Auto-Zoom on All Devices -->
     <meta 
       id="viewport-meta"
       name="viewport" 
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover" 
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover" 
     />
     
     <!-- PWA & Native App Standalone Mode Settings -->
@@ -18,82 +18,14 @@
     <meta name="apple-mobile-web-app-title" content="FlyAsh ERP" />
     <meta name="theme-color" content="#030712" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="manifest" href="manifest.json" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/flyash.svg" />
     
     <title>Sri Balamurugan Fly Ash — Enterprise System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-      // Strictly lock Zoom In and Zoom Out while preserving smooth page scrolling & fixed input entry
-      (function () {
-        var lockViewport = function () {
-          var meta = document.getElementById('viewport-meta');
-          if (meta) {
-            meta.setAttribute(
-              'content',
-              'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover'
-            );
-          }
-        };
 
-        // 1. Prevent Ctrl + Wheel / Trackpad Pinch Zoom (allow normal 1-finger/mouse wheel scroll)
-        window.addEventListener('wheel', function (e) {
-          if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-          }
-        }, { passive: false });
-
-        // 2. Prevent Keyboard Zoom Shortcuts (Ctrl/Cmd + '+', '-', '=', '_', '0')
-        window.addEventListener('keydown', function (e) {
-          if ((e.ctrlKey || e.metaKey) && (
-            e.key === '+' ||
-            e.key === '-' ||
-            e.key === '=' ||
-            e.key === '_' ||
-            e.key === '0' ||
-            e.code === 'NumpadAdd' ||
-            e.code === 'NumpadSubtract' ||
-            e.code === 'Digit0' ||
-            e.code === 'Numpad0'
-          )) {
-            e.preventDefault();
-          }
-        }, { passive: false });
-
-        // 3. Prevent Multi-touch Pinch-to-Zoom (2+ fingers) while allowing 1-finger page scroll
-        document.addEventListener('touchstart', function (e) {
-          if (e.touches.length > 1) {
-            e.preventDefault();
-          }
-        }, { passive: false });
-
-        document.addEventListener('touchmove', function (e) {
-          if (e.touches.length > 1) {
-            e.preventDefault();
-          }
-        }, { passive: false });
-
-        // 4. Prevent iOS Safari Gesture Zoom
-        document.addEventListener('gesturestart', function (e) {
-          e.preventDefault();
-        }, { passive: false });
-        document.addEventListener('gesturechange', function (e) {
-          e.preventDefault();
-        }, { passive: false });
-        document.addEventListener('gestureend', function (e) {
-          e.preventDefault();
-        }, { passive: false });
-
-        // 5. Keep display fixed at 1.0 scale when entering data in any input/select/textarea field
-        document.addEventListener('focusin', function () {
-          lockViewport();
-        });
-        document.addEventListener('focusout', function () {
-          lockViewport();
-        });
-      })();
-    </script>
   </head>
   <body class="bg-slate-950 text-slate-100 font-sans antialiased overflow-hidden select-none">
     <div id="root"></div>

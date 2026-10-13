@@ -1,0 +1,24 @@
+{
+  "id": "/flyash/",
+  "name": "Sri Balamurugan Fly Ash — Plant Manager",
+  "short_name": "FlyAsh Manager",
+  "description": "Plant operations, materials, production, parties, wages and expenses.",
+  "start_url": "/flyash/",
+  "scope": "/flyash/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#030712",
+  "theme_color": "#d97706",
+  "categories": [
+    "business",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "./icons/flyash.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
