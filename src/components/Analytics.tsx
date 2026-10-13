@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   TrendingUp,
@@ -21,7 +21,7 @@ import {
   Calculator,
 } from 'lucide-react';
 
-export const Analytics: React.FC = () => {
+export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProfitMargin = false }) => {
   const {
     inwards,
     outwards,
@@ -43,6 +43,12 @@ export const Analytics: React.FC = () => {
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
   );
   const [customTo, setCustomTo] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
+
+  useEffect(() => {
+    if (focusProfitMargin) {
+      document.getElementById('unit-profit-margin-estimator')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [focusProfitMargin]);
 
   // Selected Unit Cost Product
   const [selectedCalcProduct, setSelectedCalcProduct] = useState(productRates[0]?.name || 'Fly Ash Brick 9x4x3');
@@ -561,7 +567,7 @@ export const Analytics: React.FC = () => {
       {unitCostData && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <div>
+            <div id="unit-profit-margin-estimator" className="scroll-mt-6">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Calculator className="w-5 h-5 text-indigo-600" /> Unit Manufacturing Cost & Profit Margin Estimator
               </h3>
