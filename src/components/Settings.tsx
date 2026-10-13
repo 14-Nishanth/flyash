@@ -1203,6 +1203,11 @@ export const Settings: React.FC = () => {
           and edit all materials, production, and accounts data, but <b>cannot delete</b> any records from the database.
         </p>
 
+        {userActionError && (
+          <div className="mb-3 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300">
+            {userActionError}
+          </div>
+        )}
         {/* Create User Form (Admin/Owner only) */}
         {canManageUsers ? (
           <form onSubmit={handleCreateUser} className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl space-y-3 border border-slate-200 dark:border-slate-700">
