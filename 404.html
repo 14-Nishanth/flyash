@@ -4,8 +4,9 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="vite.svg" />
     
-    <!-- Locked Viewport & Mobile Standalone Optimization (Prevents accidental zoom in/out) -->
+    <!-- Locked Viewport: Prevents Zoom In / Zoom Out & Input Focus Auto-Zoom on All Devices -->
     <meta 
+      id="viewport-meta"
       name="viewport" 
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover" 
     />
@@ -23,10 +24,80 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="/flyash/assets/index-BclNjoUb.js"></script>
-    <link rel="stylesheet" crossorigin href="/flyash/assets/index-CG5fN8yV.css">
+    <script>
+      // Strictly lock Zoom In and Zoom Out while preserving smooth page scrolling & fixed input entry
+      (function () {
+        var lockViewport = function () {
+          var meta = document.getElementById('viewport-meta');
+          if (meta) {
+            meta.setAttribute(
+              'content',
+              'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover'
+            );
+          }
+        };
+
+        // 1. Prevent Ctrl + Wheel / Trackpad Pinch Zoom (allow normal 1-finger/mouse wheel scroll)
+        window.addEventListener('wheel', function (e) {
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+          }
+        }, { passive: false });
+
+        // 2. Prevent Keyboard Zoom Shortcuts (Ctrl/Cmd + '+', '-', '=', '_', '0')
+        window.addEventListener('keydown', function (e) {
+          if ((e.ctrlKey || e.metaKey) && (
+            e.key === '+' ||
+            e.key === '-' ||
+            e.key === '=' ||
+            e.key === '_' ||
+            e.key === '0' ||
+            e.code === 'NumpadAdd' ||
+            e.code === 'NumpadSubtract' ||
+            e.code === 'Digit0' ||
+            e.code === 'Numpad0'
+          )) {
+            e.preventDefault();
+          }
+        }, { passive: false });
+
+        // 3. Prevent Multi-touch Pinch-to-Zoom (2+ fingers) while allowing 1-finger page scroll
+        document.addEventListener('touchstart', function (e) {
+          if (e.touches.length > 1) {
+            e.preventDefault();
+          }
+        }, { passive: false });
+
+        document.addEventListener('touchmove', function (e) {
+          if (e.touches.length > 1) {
+            e.preventDefault();
+          }
+        }, { passive: false });
+
+        // 4. Prevent iOS Safari Gesture Zoom
+        document.addEventListener('gesturestart', function (e) {
+          e.preventDefault();
+        }, { passive: false });
+        document.addEventListener('gesturechange', function (e) {
+          e.preventDefault();
+        }, { passive: false });
+        document.addEventListener('gestureend', function (e) {
+          e.preventDefault();
+        }, { passive: false });
+
+        // 5. Keep display fixed at 1.0 scale when entering data in any input/select/textarea field
+        document.addEventListener('focusin', function () {
+          lockViewport();
+        });
+        document.addEventListener('focusout', function () {
+          lockViewport();
+        });
+      })();
+    </script>
+    <script type="module" crossorigin src="/flyash/assets/index-DFNN7i_c.js"></script>
+    <link rel="stylesheet" crossorigin href="/flyash/assets/index-DO4z7TVX.css">
   </head>
-  <body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen overscroll-none select-none">
+  <body class="bg-slate-950 text-slate-100 font-sans antialiased overflow-hidden select-none">
     <div id="root"></div>
   </body>
 </html>
