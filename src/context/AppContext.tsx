@@ -114,32 +114,6 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const DEFAULT_USERS: AppUser[] = [
-  {
-    id: 'user-admin-1',
-    username: 'admin',
-    password: 'admin123',
-    name: 'Plant Administrator',
-    role: 'admin',
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'user-owner-1',
-    username: 'owner',
-    password: 'owner123',
-    name: 'Plant Owner',
-    role: 'owner',
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'user-operator-1',
-    username: 'operator',
-    password: 'operator123',
-    name: 'Data Entry Operator',
-    role: 'operator',
-    created_at: new Date().toISOString(),
-  },
-];
 
 const DEFAULT_PRODUCT_RATES: ProductRateMaster[] = [
   {
