@@ -16,37 +16,34 @@
 
 ---
 
-### 🔑 Default Login Credentials
+### 🔐 Secure company sign-in and shared sync
 
-| Role | Username | Password | Permissions |
-| :--- | :--- | :--- | :--- |
-| **Plant Administrator** | `admin` | `admin123` | Full access: View, Add, Edit, Delete all records & Manage Staff Accounts |
-| **Plant Owner** | `owner` | `owner123` | Full access: View, Add, Edit, Delete all records & Financial Reports |
-| **Data Entry Operator** | `operator` | `operator123` | Can **Add** and **Edit** all plant data, but **cannot delete** records |
+The old public demo passwords have been removed. Sign in with a Supabase Auth company email account whose **app metadata** contains:
 
----
+```json
+{
+  "role": "admin",
+  "flyash_access": true
+}
+```
 
-### 🗄️ Supabase Cloud Database Tables
+For first-admin setup, migration details, user management, and the two-device verification checklist, see [Cloud Sync Setup](docs/CLOUD_SYNC_SETUP.md).
 
-| Table Name | Description & Contents |
+### 🗄️ Shared cloud data
+
+| Store | Purpose |
 | :--- | :--- |
-| **`parties`** | Customer, Supplier, and Transporter profiles with opening balance & contact info |
-| **`party_adjustments`** | Credit Notes (+ Party owes me) and Debit Notes (+ I need to pay / vouchers) |
-| **`material_inward`** | Raw Material Purchases (Fly Ash, Cement, Quarry Dust, Cool Dust, Lime, Gypsum) |
-| **`material_outward`** | Finished Goods Dispatches (Fly Ash Bricks, Solid Blocks 4"/6", Hollow Blocks) |
-| **`payments`** | Receipts received from customers and payments made to suppliers |
-| **`expenses`** | Operational expenses, Raw material purchases, and Supplier due payments |
-| **`job_wage_entries`** | Daily piece-rate production batches, gang wage splits, tray counts, and wastage cuts |
-| **`employees`** | Worker master records with daily wages and active statuses |
-| **`attendance`** | Daily worker muster roll (Present / Absent / Half-Day) |
-| **`worker_groups`** | Production gangs and customized wage split percentages/shares |
-| **`product_rates`** | Product catalog master rates (labor rates, selling prices, pieces/tray) |
-| **`app_users`** | Authenticated staff user accounts with hashed passwords and roles |
+| **`app_records`** | Canonical authenticated, realtime store for all app business records, settings, and soft-delete recovery markers |
+| **`parties`**, **`employees`** | Existing source tables preserved and copied into the shared store during migration |
+| **Other legacy tables** | Retained for compatibility and historical inspection; new app edits use `app_records` |
 
-Direct Table Editor URL:
-👉 **[https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor](https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor)**
+The new migration is additive. It does not drop, truncate, or reset existing tables. Access to `app_records` is restricted by Row Level Security to authenticated users with server-controlled FlyAsh access metadata.
+
+Direct Table Editor:
+👉 **[Supabase project tables](https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor)**
 
 ---
+
 
 ### ✨ Core System Capabilities
 
@@ -66,7 +63,7 @@ Direct Table Editor URL:
 7. **Executive Plant Dashboard:** Real-time production telemetry, dispatches, receivables vs. payables, and accurate active raw inventory stock.
 8. **1-Click WhatsApp Statements & Delivery Challans:** Instantly generate and share delivery receipts and party account statements.
 9. **Daily Attendance Register & Consolidated Wage Sheet:** Worker attendance tracking and combined salary calculation.
-10. **Permanent Supabase Cloud Sync:** Direct PostgreSQL connection with real-time cloud storage and offline-resilient local cache.
+10. **Authenticated Supabase Cloud Sync:** Shared records sync across signed-in devices through Realtime, with queued writes and visible sync errors when a connection is unavailable.
 
 ---
 
