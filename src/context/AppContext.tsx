@@ -478,7 +478,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // User Accounts
   const [users, setUsers] = useState<AppUser[]>(() => {
     const saved = localStorage.getItem('flyash_users');
-    return saved ? JSON.parse(saved) : DEFAULT_USERS;
+    if (!saved) return [];
+    try { return (JSON.parse(saved) as AppUser[]).map(({ password: _password, ...safeUser }) => safeUser); } catch { return []; }
   });
 
   const [parties, setParties] = useState<Party[]>(() => {
@@ -565,6 +566,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const session: UserSession = { id: data.user.id, username: data.user.email || email, name: data.user.user_metadata?.name || data.user.email || 'Plant Staff', role: getCloudRole(data.user), phone: data.user.user_metadata?.phone };
       setCurrentUser(session);
       localStorage.setItem('flyash_user_session', JSON.stringify(session));
+      void refreshUsers(data.user);
       setSyncError(null);
       return { success: true };
     } catch (error) {
@@ -741,6 +743,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const user = data.session?.user;
       if (user && hasCloudAccess(user)) {
         setCurrentUser({ id: user.id, username: user.email || '', name: user.user_metadata?.name || user.email || 'Plant Staff', role: getCloudRole(user), phone: user.user_metadata?.phone });
+        void refreshUsers(user);
         void syncWithCloud();
       } else setCurrentUser(null);
     });
@@ -749,6 +752,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const user = session?.user;
       if (user && hasCloudAccess(user)) {
         setCurrentUser({ id: user.id, username: user.email || '', name: user.user_metadata?.name || user.email || 'Plant Staff', role: getCloudRole(user), phone: user.user_metadata?.phone });
+        void refreshUsers(user);
         window.setTimeout(() => { if (active) void syncWithCloud(); }, 0);
       } else setCurrentUser(null);
     });
@@ -939,29 +943,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { isDuplicate: false };
   };
 
-  // --- USER MANAGEMENT ---
-  const addUser = async (user: Omit<AppUser, 'id' | 'created_at'>) => {
-    const newUser: AppUser = {
-      ...user,
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-      created_at: new Date().toISOString(),
-    };
-    setUsers((prev) => [...prev, newUser]);
+  // User management is performed through a server-side Supabase Edge Function; never store user passwords in browser state.
+  const refreshUsers = async (user: { app_metadata?: Record<string, unknown> } | null | undefined) => {
+    const role = getCloudRole(user);
+    if (role !== 'admin' && role !== 'owner') { setUsers([]); return; }
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('app_users').insert(newUser);
+    if (!supabase) return;
+    const { data, error } = await supabase.functions.invoke('manage-users', { body: { action: 'list' } });
+    if (error) {
+      setSyncError(`Could not load company users: ${error.message}`);
+      return;
+    }
+    const safeUsers = Array.isArray(data?.users) ? data.users.map((u: AppUser) => {
+      const { password: _password, ...safe } = u;
+      return safe;
+    }) : [];
+    setUsers(safeUsers);
+  };
+
+  const addUser = async (user: Omit<AppUser, 'id' | 'created_at'>) => {
+    if (!canManageUsers) throw new Error('Only an administrator or owner can add company users.');
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Cloud authentication is not configured.');
+    const { data, error } = await supabase.functions.invoke('manage-users', {
+      body: { action: 'create', email: user.username, password: user.password, name: user.name, role: user.role, phone: user.phone },
+    });
+    if (error || !data?.user) throw new Error(error?.message || data?.error || 'Could not create company user.');
+    setUsers((prev) => [...prev.filter((u) => u.id !== data.user.id), data.user]);
   };
 
   const updateUser = async (id: string, updated: Partial<AppUser>) => {
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)));
+    if (!canManageUsers) throw new Error('Only an administrator or owner can edit company users.');
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('app_users').update(updated).eq('id', id);
+    if (!supabase) throw new Error('Cloud authentication is not configured.');
+    const { data, error } = await supabase.functions.invoke('manage-users', {
+      body: { action: 'update', user_id: id, email: updated.username, password: updated.password, name: updated.name, role: updated.role, phone: updated.phone },
+    });
+    if (error || !data?.user) throw new Error(error?.message || data?.error || 'Could not update company user.');
+    setUsers((prev) => prev.map((u) => (u.id === id ? data.user : u)));
   };
 
   const deleteUser = async (id: string): Promise<boolean> => {
     if (!canDelete) return false;
-    setUsers((prev) => prev.filter((u) => u.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('app_users').delete().eq('id', id);
+    if (!supabase) throw new Error('Cloud authentication is not configured.');
+    const { data, error } = await supabase.functions.invoke('manage-users', { body: { action: 'delete', user_id: id } });
+    if (error || !data?.success) throw new Error(error?.message || data?.error || 'Could not delete company user.');
+    setUsers((prev) => prev.filter((u) => u.id !== id));
     return true;
   };
 
