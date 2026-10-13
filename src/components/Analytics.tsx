@@ -51,9 +51,6 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
     }
   }, [focusProfitMargin]);
 
-  // Selected Unit Cost Product
-  const [selectedCalcProduct, setSelectedCalcProduct] = useState(productRates[0]?.name || 'Fly Ash Brick 9x4x3');
-
   // Format local calendar dates without UTC conversion (toISOString can shift dates in India).
   const toDateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
@@ -606,22 +603,6 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
               <p className="text-xs text-slate-500">
                 Live breakdown of Raw Materials + Labor Piece-Rate + Power/Diesel overhead per brick or block
               </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Select Product:</span>
-              <select
-                value={selectedCalcProduct}
-                onChange={(e) => setSelectedCalcProduct(e.target.value)}
-                className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-              >
-                {productRates
-                  .filter((p) => p.category !== 'Raw Material' && p.category !== 'Sand & Aggregate')
-                  .map((pr) => (
-                    <option key={pr.id} value={pr.name}>
-                      {pr.name} ({pr.size || pr.category})
-                    </option>
-                  ))}
-              </select>
             </div>
           </div>
 
