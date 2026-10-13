@@ -104,6 +104,10 @@ interface AppContextType {
   calculateGroupWageDistribution: (groupId: string, totalWageAmount: number, overrideWorkerIds?: string[]) => { workerId: string; wage: number }[];
   // Duplicate check
   checkDuplicate: (type: 'party' | 'inward' | 'outward' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate', data: any, excludeId?: string) => { isDuplicate: boolean; details?: string };
+  // Multi-Device Cloud Synchronization
+  syncWithCloud: () => Promise<boolean>;
+  isSyncing: boolean;
+  lastSyncedTime: string | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -308,10 +312,161 @@ const DEFAULT_SETTINGS: AlertSettings = {
   daily_digest_time: '19:00',
 };
 
+// Universal RFC4122 v4 UUID generator (works on all mobile & desktop browsers)
+export function generateUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID();
+    } catch {}
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+function isValidUuid(id: any): boolean {
+  return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+// Database payload sanitizers (matches Supabase PostgreSQL schema exactly)
+function sanitizePartyForDb(p: any) {
+  return {
+    id: isValidUuid(p.id) ? p.id : generateUuid(),
+    name: p.name || 'Unnamed Party',
+    party_type: p.party_type || 'customer',
+    phone: p.phone || '',
+    address: p.address || '',
+    gstin: p.gstin || '',
+    opening_balance: Number(p.opening_balance) || 0,
+    created_at: p.created_at || new Date().toISOString(),
+  };
+}
+
+function sanitizeExpenseForDb(e: any) {
+  let notes = e.notes || '';
+  if (e.material_type && !notes.includes(e.material_type)) {
+    const meta = `[${e.material_type} | ${e.quantity || ''} ${e.unit || ''} @ ₹${e.rate || ''} | Status: ${e.payment_status || 'unpaid'}]`;
+    notes = notes ? `${meta} ${notes}` : meta;
+  }
+  return {
+    id: isValidUuid(e.id) ? e.id : generateUuid(),
+    date: e.date || new Date().toISOString().split('T')[0],
+    category: e.category || 'General Expense',
+    title: e.title || 'Expense',
+    amount: Number(e.amount) || 0,
+    payment_mode: e.payment_mode || e.mode || 'cash',
+    paid_to: e.paid_to || '',
+    reference_no: e.reference_no || e.ref || '',
+    notes,
+    created_at: e.created_at || new Date().toISOString(),
+  };
+}
+
+function sanitizePaymentForDb(p: any) {
+  return {
+    id: isValidUuid(p.id) ? p.id : generateUuid(),
+    date: p.date || new Date().toISOString().split('T')[0],
+    party_id: isValidUuid(p.party_id) ? p.party_id : null,
+    party_name: p.party_name || '',
+    payment_type: p.payment_type || 'received',
+    amount: Number(p.amount) || 0,
+    mode: p.mode || p.payment_mode || 'cash',
+    reference_no: p.reference_no || p.ref || '',
+    notes: p.notes || '',
+    created_at: p.created_at || new Date().toISOString(),
+  };
+}
+
+function sanitizeInwardForDb(i: any) {
+  const numPartyId = Number(i.party_id);
+  const payload: any = {
+    date: i.date || new Date().toISOString().split('T')[0],
+    party_id: !isNaN(numPartyId) && numPartyId > 0 ? numPartyId : 1,
+    material_type: i.material_type || 'Fly Ash',
+    quantity_mt: Number(i.quantity_mt) || 0,
+    quantity_unit: i.quantity_unit || 'Ton',
+    vehicle_no: i.vehicle_no || '',
+    rate: Number(i.rate) || 0,
+    amount: Number(i.amount) || 0,
+    notes: i.party_name && !i.notes?.includes(i.party_name)
+      ? `[Party: ${i.party_name}] ${i.notes || ''}`.trim()
+      : (i.notes || ''),
+  };
+  if (typeof i.id === 'number') {
+    payload.id = i.id;
+  }
+  return payload;
+}
+
+function sanitizeOutwardForDb(o: any) {
+  const numPartyId = Number(o.party_id);
+  const payload: any = {
+    date: o.date || new Date().toISOString().split('T')[0],
+    party_id: !isNaN(numPartyId) && numPartyId > 0 ? numPartyId : null,
+    material_type: o.material_type || 'Fly Ash Bricks 9x4x3',
+    quantity_mt: Number(o.quantity_mt) || 0,
+    quantity_unit: o.quantity_unit || 'Pieces',
+    vehicle_no: o.vehicle_no || '',
+    rate: Number(o.rate) || 0,
+    amount: Number(o.amount) || 0,
+    notes: o.party_name && !o.notes?.includes(o.party_name)
+      ? `[Customer: ${o.party_name}] ${o.notes || ''}`.trim()
+      : (o.notes || ''),
+  };
+  if (typeof o.id === 'number') {
+    payload.id = o.id;
+  }
+  return payload;
+}
+
+function sanitizeJobForDb(j: any) {
+  return {
+    id: isValidUuid(j.id) ? j.id : generateUuid(),
+    date: j.date || new Date().toISOString().split('T')[0],
+    group_name: j.group_name || '',
+    job_type: j.job_type || 'Production',
+    product_name: j.product_name || 'Brick 9x4x3',
+    tray_count: Number(j.tray_count) || 0,
+    pieces_per_tray: Number(j.pieces_per_tray) || 105,
+    wastage_per_tray: Number(j.wastage_per_tray) || 5,
+    total_wastage: Number(j.total_wastage) || 0,
+    gross_quantity: Number(j.gross_quantity) || 0,
+    quantity: Number(j.quantity) || 0,
+    rate_per_unit: Number(j.rate_per_unit) || 0.60,
+    gross_amount: Number(j.gross_amount) || 0,
+    wastage_amount: Number(j.wastage_amount) || 0,
+    total_amount: Number(j.total_amount) || 0,
+    worker_count: Number(j.worker_count) || 1,
+    wage_per_worker: Number(j.wage_per_worker) || 0,
+    vehicle_no: j.vehicle_no || '',
+    notes: j.notes || '',
+    created_at: j.created_at || new Date().toISOString(),
+  };
+}
+
+function sanitizeEmployeeForDb(emp: any) {
+  return {
+    id: isValidUuid(emp.id) ? emp.id : generateUuid(),
+    name: emp.name || 'Worker',
+    phone: emp.phone || '',
+    role: emp.role || 'Laborer',
+    daily_wage: Number(emp.daily_wage) || 0,
+    joining_date: emp.joining_date || new Date().toISOString().split('T')[0],
+    is_active: emp.is_active ?? true,
+    created_at: emp.created_at || new Date().toISOString(),
+  };
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Set Light theme as default
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('flyash_theme') as 'dark' | 'light') || 'light');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+
+  // Cloud sync status state
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastSyncedTime, setLastSyncedTime] = useState<string | null>(null);
 
   // Authentication Session - Requires login on every open/load per user preference
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
@@ -526,60 +681,179 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Supabase Cloud Sync on mount
+  // Core Cloud Sync Function (Bi-Directional, Realtime & Multi-Device)
+  const syncWithCloud = async (): Promise<boolean> => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return false;
+    setIsSyncing(true);
+
+    try {
+      // 1. Parties: Fetch from cloud & merge
+      const { data: pData } = await supabase.from('parties').select('*').order('created_at', { ascending: false });
+      if (pData) {
+        setParties((localParties) => {
+          const cloudIds = new Set(pData.map((p: any) => p.id));
+          const merged = [...pData];
+          // Backfill any local parties not yet in Supabase
+          localParties.forEach((lp) => {
+            if (!cloudIds.has(lp.id)) {
+              merged.push(lp);
+              supabase.from('parties').insert(sanitizePartyForDb(lp)).then();
+            }
+          });
+          return merged;
+        });
+      }
+
+      // 2. Expenses: Fetch from cloud & merge
+      const { data: expData } = await supabase.from('expenses').select('*').order('created_at', { ascending: false });
+      if (expData) {
+        setExpenses((localExp) => {
+          const cloudIds = new Set(expData.map((e: any) => e.id));
+          const merged = [...expData];
+          localExp.forEach((le) => {
+            if (!cloudIds.has(le.id)) {
+              merged.push(le);
+              supabase.from('expenses').insert(sanitizeExpenseForDb(le)).then();
+            }
+          });
+          return merged;
+        });
+      }
+
+      // 3. Payments (including mirrored vouchers): Fetch from cloud & merge
+      const { data: payData } = await supabase.from('payments').select('*').order('created_at', { ascending: false });
+      if (payData) {
+        setPayments((localPay) => {
+          const cloudIds = new Set(payData.map((p: any) => p.id));
+          const merged = [...payData];
+          localPay.forEach((lp) => {
+            if (!cloudIds.has(lp.id)) {
+              merged.push(lp);
+              supabase.from('payments').insert(sanitizePaymentForDb(lp)).then();
+            }
+          });
+          return merged;
+        });
+
+        // Mirror any payments marked as adjustment back to partyAdjustments
+        const cloudAdjs: PartyAdjustment[] = payData
+          .filter((p: any) => p.mode === 'adjustment' || p.notes?.includes('[Voucher:'))
+          .map((p: any) => ({
+            id: p.id,
+            date: p.date,
+            party_id: p.party_id || '',
+            party_name: p.party_name || '',
+            voucher_type: p.payment_type === 'received' ? 'credit' : 'debit',
+            category: p.notes?.match(/\[Voucher:\s*(.+?)\]/)?.[1] || 'Balance Adjustment',
+            amount: Number(p.amount) || 0,
+            payment_mode: 'adjustment',
+            reference_no: p.reference_no || '',
+            notes: p.notes?.replace(/\[Voucher:\s*(.+?)\]/, '').trim() || '',
+            created_at: p.created_at,
+          }));
+
+        if (cloudAdjs.length > 0) {
+          setPartyAdjustments((prev) => {
+            const adjIds = new Set(prev.map((a) => a.id));
+            const newAdjs = cloudAdjs.filter((ca) => !adjIds.has(ca.id));
+            return [...newAdjs, ...prev];
+          });
+        }
+      }
+
+      // 4. Material Inward: Fetch from cloud
+      const { data: inData } = await supabase.from('material_inward').select('*').order('id', { ascending: false });
+      if (inData) {
+        setInwards(
+          inData.map((i: any) => ({
+            ...i,
+            id: String(i.id),
+            party_name: i.notes?.match(/\[Party:\s*(.+?)\]/)?.[1] || i.party_name || 'Supplier',
+          }))
+        );
+      }
+
+      // 5. Material Outward: Fetch from cloud
+      const { data: outData } = await supabase.from('material_outward').select('*').order('id', { ascending: false });
+      if (outData) {
+        setOutwards(
+          outData.map((o: any) => ({
+            ...o,
+            id: String(o.id),
+            party_name: o.notes?.match(/\[Customer:\s*(.+?)\]/)?.[1] || o.party_name || 'Customer',
+          }))
+        );
+      }
+
+      // 6. Job Wage Entries: Fetch from cloud
+      const { data: jobData } = await supabase.from('job_wage_entries').select('*').order('created_at', { ascending: false });
+      if (jobData) {
+        setJobs(jobData);
+      }
+
+      // 7. Employees: Fetch from cloud
+      const { data: empData } = await supabase.from('employees').select('*').order('name', { ascending: true });
+      if (empData) {
+        setEmployees(empData);
+      }
+
+      // 8. Attendance: Fetch from cloud
+      const { data: attData } = await supabase.from('attendance').select('*').order('date', { ascending: false });
+      if (attData) {
+        setAttendance(attData.map((a: any) => ({ ...a, id: String(a.id) })));
+      }
+
+      setLastSyncedTime(new Date().toLocaleTimeString('en-IN'));
+      return true;
+    } catch (err) {
+      console.warn('Supabase sync dual-mode resilience:', err);
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Realtime multi-device cloud synchronization & lifecycle listeners
   useEffect(() => {
     const supabase = getSupabaseClient();
     if (!supabase) return;
 
-    async function fetchData() {
-      try {
-        const { data: uData } = await supabase!.from('app_users').select('*');
-        if (uData && uData.length > 0) {
-          setUsers((prev) => {
-            const combined = [...prev];
-            uData.forEach((u) => {
-              if (!combined.some((p) => p.username.toLowerCase() === u.username.toLowerCase())) {
-                combined.push(u);
-              }
-            });
-            return combined;
-          });
-        }
+    // 1. Initial Sync
+    syncWithCloud();
 
-        const { data: pData } = await supabase!.from('parties').select('*');
-        if (pData && pData.length > 0) setParties(pData);
-
-        const { data: inData } = await supabase!.from('material_inward').select('*');
-        if (inData && inData.length > 0) setInwards(inData);
-
-        const { data: outData } = await supabase!.from('material_outward').select('*');
-        if (outData && outData.length > 0) setOutwards(outData);
-
-        const { data: payData } = await supabase!.from('payments').select('*');
-        if (payData && payData.length > 0) setPayments(payData);
-
-        const { data: adjData } = await supabase!.from('party_adjustments').select('*');
-        if (adjData && adjData.length > 0) setPartyAdjustments(adjData);
-
-        const { data: jobData } = await supabase!.from('job_wage_entries').select('*');
-        if (jobData && jobData.length > 0) setJobs(jobData);
-
-        const { data: empData } = await supabase!.from('employees').select('*');
-        if (empData && empData.length > 0) setEmployees(empData);
-
-        const { data: expData } = await supabase!.from('expenses').select('*');
-        if (expData && expData.length > 0) setExpenses(expData);
-
-        const { data: grpData } = await supabase!.from('worker_groups').select('*');
-        if (grpData && grpData.length > 0) setWorkerGroups(grpData);
-
-        const { data: prData } = await supabase!.from('product_rates').select('*');
-        if (prData && prData.length > 0) setProductRates(prData);
-      } catch (err) {
-        console.warn('Supabase fetch dual-mode resilience:', err);
-      }
+    // 2. Realtime WebSocket Channel: Reacts instantly whenever Mobile or Laptop makes a change
+    let channel: any = null;
+    try {
+      channel = supabase
+        .channel('plant-realtime-sync')
+        .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+          syncWithCloud();
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Supabase realtime subscription error:', e);
     }
-    fetchData();
+
+    // 3. Tab Focus & Page Visibility Listeners (instantly sync when switching between devices/apps)
+    const handleFocus = () => syncWithCloud();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncWithCloud();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // 4. Background Periodic Sync (every 20 seconds)
+    const interval = setInterval(syncWithCloud, 20000);
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(interval);
+    };
   }, []);
 
   // Dynamic Group Wage Split Calculator
@@ -883,18 +1157,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addParty = async (party: Omit<Party, 'id' | 'created_at'>) => {
     const newParty: Party = {
       ...party,
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      id: generateUuid(),
       created_at: new Date().toISOString(),
     };
     setParties((prev) => [newParty, ...prev]);
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('parties').insert(newParty);
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('parties').insert(sanitizePartyForDb(newParty));
+        if (error) console.error('Party insert cloud sync error:', error.message);
+      } catch (e) {
+        console.warn('Party cloud sync exception:', e);
+      }
+    }
   };
 
   const updateParty = async (id: string, updated: Partial<Party>) => {
     setParties((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('parties').update(updated).eq('id', id);
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('parties').update(sanitizePartyForDb({ ...updated, id })).eq('id', id);
+        if (error) console.error('Party update cloud sync error:', error.message);
+      } catch (e) {
+        console.warn('Party update cloud sync exception:', e);
+      }
+    }
   };
 
   const deleteParty = async (id: string): Promise<boolean> => {
@@ -904,7 +1192,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setParties((prev) => prev.filter((p) => p.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('parties').delete().eq('id', id);
+    if (supabase) {
+      try {
+        await supabase.from('parties').delete().eq('id', id);
+      } catch (e) {
+        console.warn('Party delete cloud sync exception:', e);
+      }
+    }
     return true;
   };
 
@@ -914,12 +1208,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newInward: MaterialInward = {
       ...inward,
       party_name: party?.name || inward.party_name || 'Unassigned Supplier',
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      id: generateUuid(),
       created_at: new Date().toISOString(),
     };
     setInwards((prev) => [newInward, ...prev]);
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('material_inward').insert(newInward);
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('material_inward').insert(sanitizeInwardForDb(newInward)).select();
+        if (data && data[0]) {
+          setInwards((prev) => prev.map((i) => (i.id === newInward.id ? { ...i, id: String(data[0].id) } : i)));
+        } else if (error) {
+          console.error('Inward insert cloud sync error:', error.message);
+        }
+      } catch (e) {
+        console.warn('Inward cloud sync exception:', e);
+      }
+    }
   };
 
   const updateInward = async (id: string, updated: Partial<MaterialInward>) => {
@@ -929,7 +1234,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setInwards((prev) => prev.map((i) => (i.id === id ? { ...i, ...updated } : i)));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('material_inward').update(updated).eq('id', id);
+    if (supabase) {
+      try {
+        const numId = Number(id);
+        if (!isNaN(numId)) {
+          await supabase.from('material_inward').update(sanitizeInwardForDb(updated)).eq('id', numId);
+        }
+      } catch (e) {
+        console.warn('Inward update cloud sync exception:', e);
+      }
+    }
   };
 
   const deleteInward = async (id: string): Promise<boolean> => {
@@ -939,7 +1253,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setInwards((prev) => prev.filter((i) => i.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('material_inward').delete().eq('id', id);
+    if (supabase) {
+      try {
+        const numId = Number(id);
+        if (!isNaN(numId)) {
+          await supabase.from('material_inward').delete().eq('id', numId);
+        }
+      } catch (e) {
+        console.warn('Inward delete cloud sync exception:', e);
+      }
+    }
     return true;
   };
 
@@ -949,12 +1272,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newOutward: MaterialOutward = {
       ...outward,
       party_name: party?.name || outward.party_name || 'Walk-in Customer',
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      id: generateUuid(),
       created_at: new Date().toISOString(),
     };
     setOutwards((prev) => [newOutward, ...prev]);
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('material_outward').insert(newOutward);
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('material_outward').insert(sanitizeOutwardForDb(newOutward)).select();
+        if (data && data[0]) {
+          setOutwards((prev) => prev.map((o) => (o.id === newOutward.id ? { ...o, id: String(data[0].id) } : o)));
+        } else if (error) {
+          console.error('Outward insert cloud sync error:', error.message);
+        }
+      } catch (e) {
+        console.warn('Outward cloud sync exception:', e);
+      }
+    }
   };
 
   const updateOutward = async (id: string, updated: Partial<MaterialOutward>) => {
@@ -964,7 +1298,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setOutwards((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('material_outward').update(updated).eq('id', id);
+    if (supabase) {
+      try {
+        const numId = Number(id);
+        if (!isNaN(numId)) {
+          await supabase.from('material_outward').update(sanitizeOutwardForDb(updated)).eq('id', numId);
+        }
+      } catch (e) {
+        console.warn('Outward update cloud sync exception:', e);
+      }
+    }
   };
 
   const deleteOutward = async (id: string): Promise<boolean> => {
@@ -974,7 +1317,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setOutwards((prev) => prev.filter((o) => o.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('material_outward').delete().eq('id', id);
+    if (supabase) {
+      try {
+        const numId = Number(id);
+        if (!isNaN(numId)) {
+          await supabase.from('material_outward').delete().eq('id', numId);
+        }
+      } catch (e) {
+        console.warn('Outward delete cloud sync exception:', e);
+      }
+    }
     return true;
   };
 
@@ -984,12 +1336,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newPayment: Payment = {
       ...payment,
       party_name: party?.name || payment.party_name || '',
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      id: generateUuid(),
       created_at: new Date().toISOString(),
     };
     setPayments((prev) => [newPayment, ...prev]);
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('payments').insert(newPayment);
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('payments').insert(sanitizePaymentForDb(newPayment));
+        if (error) console.error('Payment insert cloud sync error:', error.message);
+      } catch (e) {
+        console.warn('Payment cloud sync exception:', e);
+      }
+    }
   };
 
   const updatePayment = async (id: string, updated: Partial<Payment>) => {
@@ -999,7 +1358,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setPayments((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('payments').update(updated).eq('id', id);
+    if (supabase) {
+      try {
+        await supabase.from('payments').update(sanitizePaymentForDb({ ...updated, id })).eq('id', id);
+      } catch (e) {
+        console.warn('Payment update cloud sync exception:', e);
+      }
+    }
   };
 
   const deletePayment = async (id: string): Promise<boolean> => {
@@ -1009,7 +1374,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setPayments((prev) => prev.filter((p) => p.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('payments').delete().eq('id', id);
+    if (supabase) {
+      try {
+        await supabase.from('payments').delete().eq('id', id);
+      } catch (e) {
+        console.warn('Payment delete cloud sync exception:', e);
+      }
+    }
     return true;
   };
 
@@ -1019,16 +1390,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newAdj: PartyAdjustment = {
       ...adj,
       party_name: party?.name || adj.party_name || '',
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      id: generateUuid(),
       created_at: new Date().toISOString(),
     };
     setPartyAdjustments((prev) => [newAdj, ...prev]);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        await supabase.from('party_adjustments').insert(newAdj);
+        // Mirror to payments table with mode: 'adjustment' to guarantee cloud sync across all devices
+        const mirrorPayment = {
+          id: newAdj.id,
+          date: newAdj.date,
+          party_id: newAdj.party_id,
+          party_name: newAdj.party_name,
+          payment_type: newAdj.voucher_type === 'credit' ? 'received' : 'paid',
+          amount: newAdj.amount,
+          mode: 'adjustment',
+          reference_no: newAdj.reference_no || '',
+          notes: `[Voucher: ${newAdj.category}] ${newAdj.notes || ''}`.trim(),
+          created_at: newAdj.created_at,
+        };
+        await supabase.from('payments').insert(sanitizePaymentForDb(mirrorPayment));
       } catch (e) {
-        console.warn('Supabase party adjustment insert sync:', e);
+        console.warn('Supabase party adjustment mirror sync:', e);
       }
     }
   };
@@ -1042,7 +1426,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        await supabase.from('party_adjustments').update(updated).eq('id', id);
+        await supabase.from('payments').update({
+          amount: updated.amount,
+          notes: updated.category ? `[Voucher: ${updated.category}] ${updated.notes || ''}`.trim() : updated.notes,
+        }).eq('id', id);
       } catch (e) {
         console.warn('Supabase party adjustment update sync:', e);
       }
@@ -1058,7 +1445,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        await supabase.from('party_adjustments').delete().eq('id', id);
+        await supabase.from('payments').delete().eq('id', id);
       } catch (e) {
         console.warn('Supabase party adjustment delete sync:', e);
       }
@@ -1070,18 +1457,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addJob = async (job: Omit<JobWageEntry, 'id' | 'created_at'>) => {
     const newJob: JobWageEntry = {
       ...job,
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      id: generateUuid(),
       created_at: new Date().toISOString(),
     };
     setJobs((prev) => [newJob, ...prev]);
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('job_wage_entries').insert(newJob);
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('job_wage_entries').insert(sanitizeJobForDb(newJob));
+        if (error) console.error('Job insert cloud sync error:', error.message);
+      } catch (e) {
+        console.warn('Job cloud sync exception:', e);
+      }
+    }
   };
 
   const updateJob = async (id: string, updated: Partial<JobWageEntry>) => {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...updated } : j)));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('job_wage_entries').update(updated).eq('id', id);
+    if (supabase) {
+      try {
+        await supabase.from('job_wage_entries').update(sanitizeJobForDb({ ...updated, id })).eq('id', id);
+      } catch (e) {
+        console.warn('Job update cloud sync exception:', e);
+      }
+    }
   };
 
   const deleteJob = async (id: string): Promise<boolean> => {
@@ -1091,7 +1491,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setJobs((prev) => prev.filter((j) => j.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('job_wage_entries').delete().eq('id', id);
+    if (supabase) {
+      try {
+        await supabase.from('job_wage_entries').delete().eq('id', id);
+      } catch (e) {
+        console.warn('Job delete cloud sync exception:', e);
+      }
+    }
     return true;
   };
 
@@ -1099,17 +1505,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addEmployee = async (emp: Omit<Employee, 'id'>) => {
     const newEmp: Employee = {
       ...emp,
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      id: generateUuid(),
     };
     setEmployees((prev) => [...prev, newEmp]);
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('employees').insert(newEmp);
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('employees').insert(sanitizeEmployeeForDb(newEmp));
+        if (error) console.error('Employee insert cloud sync error:', error.message);
+      } catch (e) {
+        console.warn('Employee cloud sync exception:', e);
+      }
+    }
   };
 
   const updateEmployee = async (id: string, updated: Partial<Employee>) => {
     setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('employees').update(updated).eq('id', id);
+    if (supabase) {
+      try {
+        await supabase.from('employees').update(sanitizeEmployeeForDb({ ...updated, id })).eq('id', id);
+      } catch (e) {
+        console.warn('Employee update cloud sync exception:', e);
+      }
+    }
   };
 
   const deleteEmployee = async (id: string): Promise<boolean> => {
@@ -1119,7 +1538,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setEmployees((prev) => prev.filter((e) => e.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('employees').delete().eq('id', id);
+    if (supabase) {
+      try {
+        await supabase.from('employees').delete().eq('id', id);
+      } catch (e) {
+        console.warn('Employee delete cloud sync exception:', e);
+      }
+    }
     return true;
   };
 
@@ -1128,7 +1553,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newRecords: AttendanceRecord[] = records.map((r) => {
       const emp = employees.find((e) => e.id === r.employee_id);
       return {
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+        id: generateUuid(),
         employee_id: r.employee_id,
         employee_name: emp?.name || '',
         date,
@@ -1144,8 +1569,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const supabase = getSupabaseClient();
     if (supabase) {
-      await supabase.from('attendance').delete().eq('date', date);
-      await supabase.from('attendance').insert(newRecords);
+      try {
+        await supabase.from('attendance').delete().eq('date', date);
+        const dbRecords = records.map((r, idx) => ({
+          employee_id: idx + 1,
+          date,
+          status: r.status,
+          notes: r.notes || '',
+        }));
+        await supabase.from('attendance').insert(dbRecords);
+      } catch (e) {
+        console.warn('Attendance cloud sync exception:', e);
+      }
     }
   };
 
@@ -1156,7 +1591,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setAttendance((prev) => prev.filter((a) => a.date !== date));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('attendance').delete().eq('date', date);
+    if (supabase) {
+      try {
+        await supabase.from('attendance').delete().eq('date', date);
+      } catch (e) {
+        console.warn('Attendance delete cloud sync exception:', e);
+      }
+    }
     return true;
   };
 
@@ -1175,16 +1616,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...expense,
       paid_to: paidTo,
       party_name: partyName,
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      id: generateUuid(),
       created_at: new Date().toISOString(),
     };
     setExpenses((prev) => [newExpense, ...prev]);
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        await supabase.from('expenses').insert(newExpense);
+        const { error } = await supabase.from('expenses').insert(sanitizeExpenseForDb(newExpense));
+        if (error) console.error('Expense insert cloud sync error:', error.message);
       } catch (e) {
-        console.warn('Supabase expense insert sync:', e);
+        console.warn('Supabase expense insert sync exception:', e);
       }
     }
   };
@@ -1201,9 +1643,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        await supabase.from('expenses').update(updated).eq('id', id);
+        await supabase.from('expenses').update(sanitizeExpenseForDb({ ...updated, id })).eq('id', id);
       } catch (e) {
-        console.warn('Supabase expense update sync:', e);
+        console.warn('Supabase expense update sync exception:', e);
       }
     }
   };
@@ -1215,7 +1657,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     const supabase = getSupabaseClient();
-    if (supabase) await supabase.from('expenses').delete().eq('id', id);
+    if (supabase) {
+      try {
+        await supabase.from('expenses').delete().eq('id', id);
+      } catch (e) {
+        console.warn('Expense delete cloud sync exception:', e);
+      }
+    }
     return true;
   };
 
@@ -1420,6 +1868,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getProductStock,
         calculateGroupWageDistribution,
         checkDuplicate,
+        syncWithCloud,
+        isSyncing,
+        lastSyncedTime,
       }}
     >
       {children}

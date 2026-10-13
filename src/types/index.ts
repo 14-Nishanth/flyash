@@ -1,4 +1,4 @@
-export type PaymentMode = 'cash' | 'upi' | 'bank' | 'cheque' | 'journal' | 'credit';
+export type PaymentMode = 'cash' | 'upi' | 'bank' | 'cheque' | 'journal' | 'credit' | 'adjustment';
 export type PaymentType = 'received' | 'paid';
 export type AttendanceStatus = 'present' | 'absent' | 'half-day';
 export type VoucherType = 'debit' | 'credit';

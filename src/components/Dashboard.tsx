@@ -502,24 +502,39 @@ export const Dashboard: React.FC = () => {
           </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 rounded-xl flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setActiveTab('parties')}
+            className="p-4 bg-emerald-50/80 dark:bg-emerald-950/40 hover:bg-emerald-100/80 dark:hover:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/50 rounded-xl flex items-center justify-between text-left transition group"
+          >
             <div>
-              <div className="text-xs text-emerald-800 dark:text-emerald-300 font-semibold">Customer Receivables</div>
-              <div className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 font-mono mt-1">
-                ₹{totalReceivables.toLocaleString()}
+              <div className="text-xs text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-mono uppercase">Credit (+)</span>
+                <span>Parties Need to Pay Me</span>
+              </div>
+              <div className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 font-mono mt-1.5">
+                ₹{totalReceivables.toLocaleString('en-IN')}
               </div>
             </div>
-            <Scale className="w-8 h-8 text-emerald-500/30" />
-          </div>
-          <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 rounded-xl flex items-center justify-between">
+            <Scale className="w-8 h-8 text-emerald-500/40 group-hover:scale-110 transition-transform" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('parties')}
+            className="p-4 bg-rose-50/80 dark:bg-rose-950/40 hover:bg-rose-100/80 dark:hover:bg-rose-950/60 border border-rose-200 dark:border-rose-800/50 rounded-xl flex items-center justify-between text-left transition group"
+          >
             <div>
-              <div className="text-xs text-rose-800 dark:text-rose-300 font-semibold">Supplier Payables</div>
-              <div className="text-2xl font-extrabold text-rose-700 dark:text-rose-400 font-mono mt-1">
-                ₹{totalPayables.toLocaleString()}
+              <div className="text-xs text-rose-800 dark:text-rose-300 font-bold flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[9px] font-mono uppercase">Debit (-)</span>
+                <span>Remaining Amount to Pay</span>
+              </div>
+              <div className="text-2xl font-extrabold text-rose-700 dark:text-rose-400 font-mono mt-1.5">
+                ₹{totalPayables.toLocaleString('en-IN')}
               </div>
             </div>
-            <Wallet className="w-8 h-8 text-rose-500/30" />
-          </div>
+            <Wallet className="w-8 h-8 text-rose-500/40 group-hover:scale-110 transition-transform" />
+          </button>
         </div>
       </div>
 

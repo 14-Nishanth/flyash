@@ -58,10 +58,13 @@ export const App: React.FC = () => {
 
       {/* Fixed Display Body: Left-Side Small Button Bar + Scrollable Page Container */}
       <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden relative">
-        {/* LEFT-SIDE SMALL BUTTON BAR FOR EVERY OPTION */}
-        <aside className="h-full w-14 sm:w-36 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between p-1 sm:p-2 shrink-0 overflow-y-auto z-30">
+        {/* LEFT-SIDE SMALL BUTTON BAR FOR EVERY OPTION (Taste Skill: High-Craft Compact Rail) */}
+        <aside className="h-full w-14 sm:w-36 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-r border-slate-200/90 dark:border-slate-800/90 flex flex-col justify-between p-1 sm:p-2 shrink-0 overflow-y-auto z-30 shadow-xs">
           {/* Top: Small Button for Every Option */}
           <div className="space-y-1">
+            <div className="hidden sm:block px-2 py-1 text-[9px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              Modules
+            </div>
             {MENU_OPTIONS.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -75,12 +78,15 @@ export const App: React.FC = () => {
                     }
                   }}
                   title={item.label}
-                  className={`w-full py-1.5 px-1 sm:px-2.5 rounded-lg flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 transition-all border ${
+                  className={`relative w-full py-1.5 px-1 sm:px-2.5 rounded-lg flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 transition-all border ${
                     isActive
-                      ? 'bg-amber-600 text-white border-amber-500 shadow-xs font-bold'
-                      : 'bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-transparent font-semibold'
+                      ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-white border-amber-500 shadow-sm shadow-amber-600/20 font-bold'
+                      : 'bg-slate-50/60 dark:bg-slate-800/35 hover:bg-slate-100 dark:hover:bg-slate-800/90 text-slate-700 dark:text-slate-300 border-slate-200/40 dark:border-slate-800/60 font-semibold'
                   }`}
                 >
+                  {isActive && (
+                    <span className="hidden sm:block absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-white" />
+                  )}
                   <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isActive ? 'text-white' : item.color}`} />
                   <span className="text-[9px] sm:text-[11px] leading-tight truncate max-w-full">
                     {item.shortLabel}
@@ -108,7 +114,7 @@ export const App: React.FC = () => {
             <button
               onClick={toggleTheme}
               title="Switch Light / Dark Mode"
-              className="w-full py-1.5 px-1 sm:px-2.5 rounded-lg flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold transition"
+              className="w-full py-1.5 px-1 sm:px-2.5 rounded-lg flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-800 font-semibold transition"
             >
               {theme === 'dark' ? (
                 <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-amber-400" />
@@ -157,17 +163,17 @@ export const App: React.FC = () => {
         <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-1.5">
           <button
             type="button"
-            onClick={() => handleScrollBy(-320)}
+            onClick={() => handleScrollBy(-360)}
             title="Scroll Page Up"
-            className="w-8 h-8 rounded-lg bg-slate-800/85 hover:bg-amber-600 text-white border border-slate-700 shadow-lg flex items-center justify-center transition active:scale-95"
+            className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-amber-600 text-white border border-slate-700/80 shadow-lg flex items-center justify-center transition"
           >
             <ChevronUp className="w-4 h-4" />
           </button>
           <button
             type="button"
-            onClick={() => handleScrollBy(320)}
+            onClick={() => handleScrollBy(360)}
             title="Scroll Page Down"
-            className="w-8 h-8 rounded-lg bg-slate-800/85 hover:bg-amber-600 text-white border border-slate-700 shadow-lg flex items-center justify-center transition active:scale-95"
+            className="w-8 h-8 rounded-lg bg-slate-900/90 hover:bg-amber-600 text-white border border-slate-700/80 shadow-lg flex items-center justify-center transition"
           >
             <ChevronDown className="w-4 h-4" />
           </button>

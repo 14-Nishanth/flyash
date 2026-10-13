@@ -18,7 +18,8 @@ import {
   TrendingUp,
   Lock,
   Database,
-  ExternalLink
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 
@@ -107,7 +108,17 @@ export const MENU_OPTIONS = [
 ];
 
 export const Navbar: React.FC = () => {
-  const { activeTab, setActiveTab, theme, toggleTheme, currentUser, logout } = useApp();
+  const { 
+    activeTab, 
+    setActiveTab, 
+    theme, 
+    toggleTheme, 
+    currentUser, 
+    logout,
+    syncWithCloud,
+    isSyncing,
+    lastSyncedTime
+  } = useApp();
   const isSupabaseConnected = !!getSupabaseClient();
 
   const currentNav = MENU_OPTIONS.find((item) => item.id === activeTab) || MENU_OPTIONS[0];
@@ -156,18 +167,37 @@ export const Navbar: React.FC = () => {
 
           {/* Right: Status & User Profile (No Right-Side Menu Button) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Cloud Sync Indicator */}
-            <div 
-              className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold border ${
-                isSupabaseConnected 
-                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40' 
+            {/* Interactive Cloud Sync Button */}
+            <button
+              onClick={() => syncWithCloud()}
+              disabled={isSyncing}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold border transition ${
+                isSyncing
+                  ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/60 dark:text-amber-400 animate-pulse'
+                  : isSupabaseConnected
+                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800/60'
                   : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200'
               }`}
-              title="Supabase PostgreSQL Cloud Sync Active"
+              title={
+                isSyncing
+                  ? 'Syncing with Supabase cloud...'
+                  : lastSyncedTime
+                  ? `Last synced: ${new Date(lastSyncedTime).toLocaleTimeString()}. Click to force sync mobile & laptop.`
+                  : 'Click to sync data with Supabase cloud'
+              }
             >
-              <Cloud className="w-3 h-3 text-emerald-500" />
-              <span>Cloud Sync</span>
-            </div>
+              {isSyncing ? (
+                <RefreshCw className="w-3 h-3 text-amber-600 animate-spin" />
+              ) : (
+                <div className="relative flex items-center justify-center">
+                  <Cloud className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping opacity-75" />
+                </div>
+              )}
+              <span className="hidden xs:inline">
+                {isSyncing ? 'Syncing...' : 'Live Sync'}
+              </span>
+            </button>
 
             {/* Admin Supabase Database Direct Link */}
             {(currentUser?.role === 'admin' || currentUser?.role === 'owner') && (
