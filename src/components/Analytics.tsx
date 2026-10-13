@@ -31,6 +31,7 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
     productRates,
     calculatePartyBalance,
     settings,
+    setActiveTab,
   } = useApp();
 
   const now = new Date();
@@ -196,6 +197,15 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
             Track weekly & monthly revenue turnover, net gross margins, outstanding aging, and unit profit estimates
           </p>
+          <button
+            type="button"
+            onClick={() => setActiveTab('profit-margin')}
+            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
+          >
+            <Calculator className="h-4 w-4" />
+            Open Profit Margin Calculator
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         {/* Controls Toolbar */}
