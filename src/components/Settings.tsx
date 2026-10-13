@@ -1230,14 +1230,15 @@ export const Settings: React.FC = () => {
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Username *
+                  Company Email *
                 </label>
                 <input
-                  type="text"
+                  type="email"
+                  autoComplete="email"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   required
-                  placeholder="e.g. operator1"
+                  placeholder="operator@company.com"
                   className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -1246,7 +1247,9 @@ export const Settings: React.FC = () => {
                   Password *
                 </label>
                 <input
-                  type="text"
+                  type="password"
+                  minLength={8}
+                  autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -1393,7 +1396,8 @@ export const Settings: React.FC = () => {
                   Username / Login *
                 </label>
                 <input
-                  type="text"
+                  type="email"
+                  autoComplete="email"
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value)}
                   required
@@ -1406,7 +1410,9 @@ export const Settings: React.FC = () => {
                   New Password (leave blank to keep current)
                 </label>
                 <input
-                  type="text"
+                  type="password"
+                  minLength={8}
+                  autoComplete="new-password"
                   value={editPassword}
                   onChange={(e) => setEditPassword(e.target.value)}
                   placeholder="Enter new password"
