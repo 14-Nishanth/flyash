@@ -87,6 +87,7 @@ export const Parties: React.FC = () => {
 
   // Quick Pay Modal State
   const [payAmount, setPayAmount] = useState('');
+  const [payDirection, setPayDirection] = useState<'received' | 'paid'>('received');
   const [payMode, setPayMode] = useState<PaymentMode>('upi');
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
   const [payRef, setPayRef] = useState('');
@@ -149,15 +150,17 @@ export const Parties: React.FC = () => {
     setVoucherModalOpen(true);
   };
 
-  const openQuickPay = (party: Party) => {
+  const openQuickPay = (party: Party, direction: 'received' | 'paid') => {
     setSelectedParty(party);
     const bal = calculatePartyBalance(party.id);
-    // If debit (I need to pay), preset with due amount; otherwise empty
-    setPayAmount(bal < 0 ? String(Math.abs(bal)) : '');
+    setPayDirection(direction);
+    setPayAmount(direction === 'received' ? (bal > 0 ? String(bal) : '') : (bal < 0 ? String(Math.abs(bal)) : ''));
     setPayMode('upi');
     setPayDate(new Date().toISOString().split('T')[0]);
     setPayRef('');
-    setPayNotes(`Payment towards outstanding balance to ${party.name}`);
+    setPayNotes(direction === 'received'
+      ? `Part payment received from ${party.name}`
+      : `Payment towards outstanding balance to ${party.name}`);
     setPayModalOpen(true);
   };
 
@@ -249,7 +252,7 @@ export const Parties: React.FC = () => {
       date: payDate,
       party_id: selectedParty.id,
       party_name: selectedParty.name,
-      payment_type: 'paid',
+      payment_type: payDirection,
       amount: amt,
       mode: payMode,
       reference_no: payRef.trim(),
@@ -652,22 +655,23 @@ export const Parties: React.FC = () => {
                           <BookOpen className="w-3.5 h-3.5" /> Ledger
                         </button>
 
-                        {/* Pay Due Button (Featured if there is an amount to pay) */}
-                        {bal < 0 ? (
+                                        {/* Record money received from customers or paid to suppliers */}
+                        {bal >= 0 && (
                           <button
-                            onClick={() => openQuickPay(party)}
+                            onClick={() => openQuickPay(party, 'received')}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition font-bold text-xs flex items-center gap-1 shadow-sm shadow-emerald-600/20"
+                            title="Record partial or full payment received and reduce outstanding"
+                          >
+                            <ArrowDownLeft className="w-3.5 h-3.5" /> Receive
+                          </button>
+                        )}
+                        {bal <= 0 && (
+                          <button
+                            onClick={() => openQuickPay(party, 'paid')}
                             className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition font-bold text-xs flex items-center gap-1 shadow-sm shadow-rose-600/20"
-                            title="Pay this supplier & reduce remaining amount to pay"
+                            title="Record payment made to this supplier and reduce amount payable"
                           >
                             <Wallet className="w-3.5 h-3.5" /> Pay Due
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => openQuickPay(party)}
-                            className="px-2 py-1 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 rounded-lg transition font-semibold text-xs flex items-center gap-1"
-                            title="Record Payment"
-                          >
-                            <Wallet className="w-3.5 h-3.5" /> Pay
                           </button>
                         )}
 
@@ -733,8 +737,13 @@ export const Parties: React.FC = () => {
       {payModalOpen && selectedParty && (() => {
         const currentBal = calculatePartyBalance(selectedParty.id);
         const amtPaying = parseFloat(payAmount) || 0;
-        // Current balance: if negative (e.g. -60000), paying 30000 -> -60000 + 30000 = -30000
-        const newBal = currentBal + amtPaying;
+        // Receiving money reduces what the party owes; paying a supplier reduces what we owe.
+        const newBal = payDirection === 'received' ? currentBal - amtPaying : currentBal + amtPaying;
+        const balanceLabel = newBal > 0
+          ? `₹${newBal.toLocaleString('en-IN')} Cr (Remaining to Receive)`
+          : newBal < 0
+          ? `₹${Math.abs(newBal).toLocaleString('en-IN')} Dr (Remaining to Pay)`
+          : '₹0.00 Fully Settled!';
 
         return (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -742,7 +751,7 @@ export const Parties: React.FC = () => {
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-emerald-600" /> Pay Supplier / Clear Outstanding
+                    <Wallet className={`w-5 h-5 ${payDirection === 'received' ? 'text-emerald-600' : 'text-rose-600'}`} /> {payDirection === 'received' ? 'Receive Amount from Party' : 'Pay Supplier / Clear Outstanding'}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Party: {selectedParty.name}</p>
                 </div>
@@ -757,20 +766,20 @@ export const Parties: React.FC = () => {
                   <span className="text-slate-500 font-medium">Current Outstanding:</span>
                   <span className={`font-mono font-extrabold text-sm ${currentBal < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600'}`}>
                     ₹{Math.abs(currentBal).toLocaleString('en-IN')}{' '}
-                    <span className="text-[11px]">{currentBal < 0 ? 'Dr (I Need to Pay)' : 'Cr (Receivable)'}</span>
+                    <span className="text-[11px]">{currentBal < 0 ? 'Dr (I Need to Pay)' : currentBal > 0 ? 'Cr (They Need to Pay Me)' : 'Settled'}</span>
                   </span>
                 </div>
 
                 {amtPaying > 0 && (
                   <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between font-semibold">
-                    <span className="text-emerald-700 dark:text-emerald-400">Remaining Amount to Pay:</span>
+                    <span className={payDirection === 'received' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}>
+                      {payDirection === 'received' ? 'Balance after receiving:' : 'Balance after paying:'}
+                    </span>
                     <span className="font-mono font-extrabold text-base">
-                      {newBal < 0 ? (
-                        <span className="text-rose-600 dark:text-rose-400">₹{Math.abs(newBal).toLocaleString('en-IN')} Dr (I Need to Pay)</span>
-                      ) : newBal === 0 ? (
+                      {newBal === 0 ? (
                         <span className="text-emerald-600">₹0.00 Fully Settled!</span>
                       ) : (
-                        <span className="text-emerald-600">₹{newBal.toLocaleString('en-IN')} Cr (Advance/Receivable)</span>
+                        <span className={newBal > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>{balanceLabel}</span>
                       )}
                     </span>
                   </div>
@@ -790,14 +799,14 @@ export const Parties: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Amount to Pay (₹) *</label>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">{payDirection === 'received' ? 'Amount Received (₹) *' : 'Amount Paid (₹) *'}</label>
                     <input
                       type="number"
                       step="any"
                       value={payAmount}
                       onChange={(e) => setPayAmount(e.target.value)}
                       required
-                      placeholder="e.g. 30000"
+                      placeholder="e.g. 10000"
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500 text-sm"
                     />
                   </div>
@@ -852,7 +861,7 @@ export const Parties: React.FC = () => {
                     type="submit"
                     className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-emerald-600/20 flex items-center gap-1.5"
                   >
-                    <Check className="w-3.5 h-3.5" /> Save Payment & Update Balance
+                    <Check className="w-3.5 h-3.5" /> {payDirection === 'received' ? 'Save Received Amount & Update Balance' : 'Save Payment & Update Balance'}
                   </button>
                 </div>
               </form>
