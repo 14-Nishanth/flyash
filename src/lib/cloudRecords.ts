@@ -17,6 +17,28 @@ export const CLOUD_COLLECTIONS = [
 
 export type CloudCollection = (typeof CLOUD_COLLECTIONS)[number];
 
+const LOCAL_ONLY_SETTING_KEYS = [
+  'telegram_bot_token',
+  'telegram_chat_id',
+  'email_service_id',
+  'email_template_id',
+  'email_public_key',
+  'smtp_password',
+  'smtp_user',
+  'api_key',
+  'webhook_url',
+  'supabase_url',
+  'supabase_anon_key',
+] as const;
+
+export function sanitizeCloudRecord(collection: CloudCollection, record: Record<string, unknown>): Record<string, unknown> {
+  const safe = { ...record };
+  if (collection === 'settings') {
+    for (const key of LOCAL_ONLY_SETTING_KEYS) delete safe[key];
+  }
+  return safe;
+}
+
 export interface CloudRecordRow {
   collection: CloudCollection;
   id: string;
@@ -52,7 +74,8 @@ export async function saveCloudRecord(
   record: Record<string, unknown>,
 ): Promise<void> {
   const user = await requireSignedInUser(supabase);
-  const rawId = record.id;
+  const safeRecord = sanitizeCloudRecord(collection, record);
+  const rawId = safeRecord.id;
   if (rawId === undefined || rawId === null || String(rawId).trim() === '') {
     throw new Error(`Cannot sync ${collection}: record ID is missing.`);
   }
@@ -60,7 +83,7 @@ export async function saveCloudRecord(
   const { error } = await supabase.from('app_records').upsert({
     collection,
     id: String(rawId),
-    data: { ...record, id: String(rawId) },
+    data: { ...safeRecord, id: String(rawId) },
     updated_by: user.id,
     deleted_at: null,
   }, { onConflict: 'collection,id' });
