@@ -684,7 +684,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const id = record.id == null ? '' : String(record.id);
           return id !== '' && !rowKeys.has(`${collection}::${id}`);
         });
-        for (const record of localOnly) await saveCloudRecord(supabase, collection, cloudRecord);
+        for (const record of localOnly) await saveCloudRecord(supabase, collection, record);
         merged[collection] = [...activeCloud, ...localOnly];
       }
       setParties(merged.parties as unknown as Party[]);
