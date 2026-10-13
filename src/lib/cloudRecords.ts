@@ -74,14 +74,37 @@ export async function softDeleteCloudRecord(
   id: string,
 ): Promise<void> {
   const user = await requireSignedInUser(supabase);
-  const { error } = await supabase.from('app_records').upsert({
+  const key = String(id);
+
+  // Preserve the original payload as a recoverable tombstone instead of replacing it with { id }.
+  const { data: existing, error: lookupError } = await supabase
+    .from('app_records')
+    .select('id,deleted_at')
+    .eq('collection', collection)
+    .eq('id', key)
+    .maybeSingle();
+  if (lookupError) throw new Error(`Could not check ${collection} record before delete: ${lookupError.message}`);
+  if (existing?.deleted_at) return;
+
+  if (existing) {
+    const { error } = await supabase
+      .from('app_records')
+      .update({ deleted_at: new Date().toISOString(), updated_by: user.id })
+      .eq('collection', collection)
+      .eq('id', key);
+    if (error) throw new Error(`Could not delete ${collection} record from the cloud: ${error.message}`);
+    return;
+  }
+
+  // This branch is for a locally-created record deleted before it was ever uploaded.
+  const { error } = await supabase.from('app_records').insert({
     collection,
-    id: String(id),
-    data: { id: String(id) },
+    id: key,
+    data: { id: key },
     updated_by: user.id,
     deleted_at: new Date().toISOString(),
-  }, { onConflict: 'collection,id' });
-  if (error) throw new Error(`Could not delete ${collection} record from the cloud: ${error.message}`);
+  });
+  if (error) throw new Error(`Could not create ${collection} delete marker in the cloud: ${error.message}`);
 }
 
 export function hasCloudAccess(user: { app_metadata?: Record<string, unknown> } | null | undefined): boolean {
