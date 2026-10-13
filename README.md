@@ -2,6 +2,8 @@
 
 [![Deploy to GitHub Pages](https://github.com/14-Nishanth/flyash/actions/workflows/deploy.yml/badge.svg)](https://github.com/14-Nishanth/flyash/actions/workflows/deploy.yml)
 [![Live Demo](https://img.shields.io/badge/🌐_Live_Website-GitHub_Pages-22c55e?style=for-the-badge)](https://14-nishanth.github.io/flyash/)
+
+**🔗 Open the live application:** https://14-Nishanth.github.io/flyash/
 [![Supabase Database](https://img.shields.io/badge/🗄️_Supabase_Database-Table_Editor-3ecf8e?style=for-the-badge)](https://supabase.com/dashboard/project/laqpdlasfxearjtnnouu/editor)
 
 ---
