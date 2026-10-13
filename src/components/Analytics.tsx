@@ -147,32 +147,54 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
     return weeks;
   }, [selectedMonth, outwards, inwards, jobs, expenses]);
 
-  // Per-Piece Unit Profit Margin Estimator
-  const unitCostData = useMemo(() => {
-    const prod = productRates.find((p) => p.name === selectedCalcProduct) || productRates[0];
-    if (!prod) return null;
+  // Editable batch recipe and purchase-unit costs. Saved in this browser between visits.
+  type RecipeMaterial = { id: string; name: string; purchasePrice: number; purchaseQuantity: number; purchaseUnitKg: number; kgPerBatch: number };
+  type RecipeSettings = { bricksPerBatch: number; sellingPricePerBrick: number; laborPerBatch: number; powerFuelPerBatch: number; materials: RecipeMaterial[] };
+  const defaultRecipe: RecipeSettings = {
+    bricksPerBatch: 5000,
+    sellingPricePerBrick: 5.5,
+    laborPerBatch: 3000,
+    powerFuelPerBatch: 1750,
+    materials: [
+      { id: 'ash', name: 'Fly ash', purchasePrice: 1000, purchaseQuantity: 1, purchaseUnitKg: 1000, kgPerBatch: 40 },
+      { id: 'cement', name: 'Cement', purchasePrice: 350, purchaseQuantity: 1, purchaseUnitKg: 50, kgPerBatch: 17 },
+      { id: 'dust', name: 'Dust', purchasePrice: 17000, purchaseQuantity: 1, purchaseUnitKg: 3200, kgPerBatch: 80 },
+      { id: 'cooldust', name: 'Cooldust', purchasePrice: 4500, purchaseQuantity: 1, purchaseUnitKg: 3200, kgPerBatch: 100 },
+    ],
+  };
+  const [recipe, setRecipe] = useState<RecipeSettings>(() => {
+    try {
+      const saved = localStorage.getItem('flyash-profit-margin-recipe-v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.materials) && parsed.materials.length) return { ...defaultRecipe, ...parsed };
+      }
+    } catch { /* use defaults if saved settings cannot be read */ }
+    return defaultRecipe;
+  });
+  useEffect(() => {
+    try { localStorage.setItem('flyash-profit-margin-recipe-v1', JSON.stringify(recipe)); } catch { /* browser storage may be unavailable */ }
+  }, [recipe]);
 
-    const sellingPrice = prod.selling_rate_per_unit || 5.50;
-    const laborRate = prod.labor_rate_per_unit || 0.60;
-
-    // Standard fly ash brick / concrete block batch estimates
-    const rawMatEst = prod.category === 'Brick' ? 2.10 : prod.name.includes('9x9') ? 32.0 : prod.name.includes('8x8') ? 28.0 : prod.name.includes('6x8') ? 22.0 : prod.name.includes('6') ? 19.5 : 14.0;
-    const powerAndFuelEst = prod.category === 'Brick' ? 0.35 : 1.80;
-    const totalUnitCost = rawMatEst + laborRate + powerAndFuelEst;
-    const netProfitPerUnit = sellingPrice - totalUnitCost;
-    const marginPct = (netProfitPerUnit / sellingPrice) * 100;
-
-    return {
-      product: prod,
-      sellingPrice,
-      rawMatEst,
-      laborRate,
-      powerAndFuelEst,
-      totalUnitCost,
-      netProfitPerUnit,
-      marginPct,
-    };
-  }, [selectedCalcProduct, productRates]);
+  const updateRecipe = (patch: Partial<RecipeSettings>) => setRecipe((current) => ({ ...current, ...patch }));
+  const updateMaterial = (id: string, patch: Partial<RecipeMaterial>) => setRecipe((current) => ({
+    ...current,
+    materials: current.materials.map((material) => material.id === id ? { ...material, ...patch } : material),
+  }));
+  const materialCosts = recipe.materials.map((material) => {
+    const purchasedKg = Math.max(0, material.purchaseQuantity * material.purchaseUnitKg);
+    const costPerKg = purchasedKg > 0 ? material.purchasePrice / purchasedKg : 0;
+    return { ...material, costPerKg, batchCost: costPerKg * Math.max(0, material.kgPerBatch) };
+  });
+  const rawMatBatchCost = materialCosts.reduce((sum, material) => sum + material.batchCost, 0);
+  const rawMatEst = recipe.bricksPerBatch > 0 ? rawMatBatchCost / recipe.bricksPerBatch : 0;
+  const laborRate = recipe.bricksPerBatch > 0 ? recipe.laborPerBatch / recipe.bricksPerBatch : 0;
+  const powerAndFuelEst = recipe.bricksPerBatch > 0 ? recipe.powerFuelPerBatch / recipe.bricksPerBatch : 0;
+  const totalUnitCost = rawMatEst + laborRate + powerAndFuelEst;
+  const sellingPrice = recipe.sellingPricePerBrick;
+  const netProfitPerUnit = sellingPrice - totalUnitCost;
+  const marginPct = sellingPrice > 0 ? (netProfitPerUnit / sellingPrice) * 100 : 0;
+  const unitCostData = { sellingPrice, rawMatEst, laborRate, powerAndFuelEst, totalUnitCost, netProfitPerUnit, marginPct };
 
   const sendWhatsAppReminder = (party: any, balance: number) => {
     const text = `*PAYMENT REMINDER — SRI BALAMURUGAN FLY ASH BRICKS*\n----------------------------------------\nDear ${party.name},\nThis is a friendly reminder that your outstanding account balance is *₹${balance.toLocaleString()}*.\n\nKindly arrange for the settlement at your earliest convenience.\n\n*Payment Modes:* Cash / UPI / Bank Transfer / Cheque\nFor any billing clarification, please contact plant accounts.\n----------------------------------------\nThank you for your business!`;
@@ -603,6 +625,57 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
             </div>
           </div>
 
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-4">
+            <div>
+              <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Manufacturing Recipe & Material Purchase Costs</h4>
+              <p className="text-xs text-slate-500 mt-1">Enter purchase price and pack size. Cost per kg is calculated automatically, then multiplied by kg used for one batch.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Bricks produced per batch
+                <input type="number" min="1" value={recipe.bricksPerBatch} onChange={(e) => updateRecipe({ bricksPerBatch: Math.max(1, Number(e.target.value) || 1) })} className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Selling price per brick (₹)
+                <input type="number" min="0" step="0.01" value={recipe.sellingPricePerBrick} onChange={(e) => updateRecipe({ sellingPricePerBrick: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Labour cost per batch (₹)
+                <input type="number" min="0" step="0.01" value={recipe.laborPerBatch} onChange={(e) => updateRecipe({ laborPerBatch: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Power/diesel cost per batch (₹)
+                <input type="number" min="0" step="0.01" value={recipe.powerFuelPerBatch} onChange={(e) => updateRecipe({ powerFuelPerBatch: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" />
+              </label>
+            </div>
+            <div className="space-y-3">
+              {recipe.materials.map((material) => {
+                const calculated = materialCosts.find((item) => item.id === material.id)!;
+                return (
+                  <div key={material.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <input aria-label="Material name" value={material.name} onChange={(e) => updateMaterial(material.id, { name: e.target.value })} className="min-w-0 flex-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-sm font-bold" />
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">₹{calculated.costPerKg.toFixed(4)} / kg</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <label className="text-xs text-slate-600 dark:text-slate-300">Purchase price (₹)
+                        <input type="number" min="0" step="0.01" value={material.purchasePrice} onChange={(e) => updateMaterial(material.id, { purchasePrice: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-2 text-sm" />
+                      </label>
+                      <label className="text-xs text-slate-600 dark:text-slate-300">Purchase quantity
+                        <input type="number" min="0.001" step="any" value={material.purchaseQuantity} onChange={(e) => updateMaterial(material.id, { purchaseQuantity: Math.max(0.001, Number(e.target.value) || 0.001) })} className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-2 text-sm" />
+                      </label>
+                      <label className="text-xs text-slate-600 dark:text-slate-300">Kg per purchase unit
+                        <input type="number" min="0.001" step="any" value={material.purchaseUnitKg} onChange={(e) => updateMaterial(material.id, { purchaseUnitKg: Math.max(0.001, Number(e.target.value) || 0.001) })} className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-2 text-sm" />
+                      </label>
+                      <label className="text-xs text-slate-600 dark:text-slate-300">Kg used per batch
+                        <input type="number" min="0" step="any" value={material.kgPerBatch} onChange={(e) => updateMaterial(material.id, { kgPerBatch: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-2 text-sm" />
+                      </label>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-500">Batch material cost: ₹{calculated.batchCost.toFixed(2)} · Total purchase weight: {(material.purchaseQuantity * material.purchaseUnitKg).toLocaleString()} kg</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 p-3 text-xs text-emerald-800 dark:text-emerald-200">
+              Formula: purchase price ÷ (purchase quantity × kg per unit) = price/kg; price/kg × kg used per batch = material batch cost; total batch cost ÷ bricks per batch = material cost per brick.
+            </div>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono text-center">
             <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
               <div className="text-[10px] text-slate-500 uppercase font-sans">Raw Materials Cost</div>
