@@ -16,10 +16,13 @@ export const Login: React.FC = () => {
     setErrorMsg('');
     setLoading(true);
 
-    const result = await login(username, password);
-    setLoading(false);
-    if (!result.success) {
-      setErrorMsg(result.error || 'Login failed. Please verify credentials.');
+    try {
+      const result = await login(username, password);
+      if (!result.success) setErrorMsg(result.error || 'Login failed. Please verify credentials.');
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Could not sign in. Check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -71,7 +74,8 @@ export const Login: React.FC = () => {
                 <User className="w-4 h-4" />
               </span>
               <input
-                type="text"
+                type="email"
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -91,6 +95,7 @@ export const Login: React.FC = () => {
               </span>
               <input
                 type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
