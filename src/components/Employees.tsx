@@ -13,7 +13,6 @@ import {
   CheckCircle,
   X,
   Boxes,
-  ClipboardCheck,
   Scale,
   Sparkles,
 } from 'lucide-react';
@@ -25,7 +24,6 @@ export const Employees: React.FC = () => {
     employees,
     workerGroups,
     productRates,
-    attendance,
     addEmployee,
     updateEmployee,
     deleteEmployee,
@@ -35,8 +33,6 @@ export const Employees: React.FC = () => {
     addProductRate,
     updateProductRate,
     deleteProductRate,
-    saveAttendance,
-    deleteAttendanceForDate,
     canDelete,
     checkDuplicate,
     calculateGroupWageDistribution,
@@ -44,9 +40,6 @@ export const Employees: React.FC = () => {
 
   const [subTab, setSubTab] = useState<'groups' | 'workers' | 'rates'>('groups');
 
-  // Attendance Date
-  const [attDate, setAttDate] = useState(new Date().toISOString().split('T')[0]);
-  const [statusMap, setStatusMap] = useState<{ [empId: string]: string }>({});
 
   // Modals state
   const [empModalOpen, setEmpModalOpen] = useState(false);
@@ -97,16 +90,6 @@ export const Employees: React.FC = () => {
 
   // Live Wage Simulator for Groups
   const [simTotalWage, setSimTotalWage] = useState('3600');
-
-  // Sync attendance status on date change
-  React.useEffect(() => {
-    const map: { [key: string]: string } = {};
-    employees.forEach((e) => {
-      const match = attendance.find((a) => a.date === attDate && a.employee_id === e.id);
-      map[e.id] = match ? match.status : 'present';
-    });
-    setStatusMap(map);
-  }, [attDate, attendance, employees]);
 
   // --- WORKER HANDLERS ---
   const openAddEmp = () => {
@@ -479,177 +462,44 @@ export const Employees: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* SUB-TAB 2: WORKER DIRECTORY & ATTENDANCE */}
+      {/* SUB-TAB 2: WORKER DIRECTORY */}
       {/* ========================================================================= */}
       {subTab === 'workers' && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-teal-600" /> Worker Profiles & Daily Attendance
+                <Users className="w-5 h-5 text-teal-600" /> Worker Directory
               </h2>
-              <p className="text-xs text-slate-500">
-                Manage worker database, base daily wages, and mark daily shift registers
-              </p>
+              <p className="text-xs text-slate-500">Manage worker profiles and assign them to gangs. Daily work and equal salary division are handled in the Wages Sheet.</p>
             </div>
-            <button
-              onClick={openAddEmp}
-              className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition shadow-md shadow-teal-600/20 flex items-center gap-2"
-            >
+            <button onClick={openAddEmp} className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition shadow-md shadow-teal-600/20 flex items-center gap-2">
               <UserPlus className="w-4 h-4" /> Add Worker
             </button>
           </div>
-
-          {/* Daily Attendance Card */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ClipboardCheck className="w-4 h-4 text-teal-600" /> Daily Attendance Register
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Date:</span>
-                <input
-                  type="date"
-                  value={attDate}
-                  onChange={(e) => setAttDate(e.target.value)}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-            </div>
-
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
                 <thead className="text-xs uppercase bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
-                  <tr>
-                    <th className="px-4 py-3.5">Employee Name</th>
-                    <th className="px-4 py-3.5">Designation / Phone</th>
-                    <th className="px-4 py-3.5">Assigned Gang</th>
-                    <th className="px-4 py-3.5 font-mono">Daily Wage</th>
-                    <th className="px-4 py-3.5 text-center">Attendance Status</th>
-                    <th className="px-4 py-3.5 text-center">Actions</th>
-                  </tr>
+                  <tr><th className="px-4 py-3.5">Worker</th><th className="px-4 py-3.5">Role / Phone</th><th className="px-4 py-3.5">Assigned Gangs</th><th className="px-4 py-3.5 text-right">Base Daily Rate</th><th className="px-4 py-3.5 text-center">Actions</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                   {employees.map((emp) => {
-                    const currentStatus = statusMap[emp.id] || 'present';
                     const empGroups = workerGroups.filter((g) => g.member_ids?.includes(emp.id));
-
-                    return (
-                      <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-                        <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">{emp.name}</td>
-                        <td className="px-4 py-3.5">
-                          <div>{emp.role || 'Laborer'}</div>
-                          {emp.phone && <div className="text-[11px] font-mono text-slate-400">{emp.phone}</div>}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          {empGroups.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {empGroups.map((g) => (
-                                <span
-                                  key={g.id}
-                                  className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-semibold"
-                                >
-                                  {g.name}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400 text-[11px]">Unassigned</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 font-mono font-bold text-slate-800 dark:text-slate-200">
-                          ₹{emp.daily_wage}
-                        </td>
-                        <td className="px-4 py-3.5 text-center">
-                          <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-800 text-xs">
-                            <button
-                              type="button"
-                              onClick={() => setStatusMap((prev) => ({ ...prev, [emp.id]: 'present' }))}
-                              className={`px-3 py-1 rounded-lg font-semibold transition ${
-                                currentStatus === 'present'
-                                  ? 'bg-emerald-600 text-white shadow-sm'
-                                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                              }`}
-                            >
-                              Present
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setStatusMap((prev) => ({ ...prev, [emp.id]: 'half-day' }))}
-                              className={`px-3 py-1 rounded-lg font-semibold transition ${
-                                currentStatus === 'half-day'
-                                  ? 'bg-amber-600 text-white shadow-sm'
-                                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                              }`}
-                            >
-                              Half-Day
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setStatusMap((prev) => ({ ...prev, [emp.id]: 'absent' }))}
-                              className={`px-3 py-1 rounded-lg font-semibold transition ${
-                                currentStatus === 'absent'
-                                  ? 'bg-rose-600 text-white shadow-sm'
-                                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                              }`}
-                            >
-                              Absent
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => openEditEmp(emp)}
-                              className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 rounded-lg transition"
-                              title="Edit Worker"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            {canDelete ? (
-                              <button
-                                onClick={() => handleDeleteEmp(emp.id)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition"
-                                title="Remove Worker"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            ) : (
-                              <span className="p-1.5 text-slate-300 dark:text-slate-700 cursor-not-allowed">
-                                <Lock className="w-3.5 h-3.5" />
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
+                    return <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                      <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">{emp.name}{!emp.is_active && <span className="ml-2 text-[10px] text-rose-500">Inactive</span>}</td>
+                      <td className="px-4 py-3.5"><div>{emp.role || 'Laborer'}</div>{emp.phone && <div className="text-[11px] font-mono text-slate-400">{emp.phone}</div>}</td>
+                      <td className="px-4 py-3.5">{empGroups.length ? <div className="flex flex-wrap gap-1">{empGroups.map((g) => <span key={g.id} className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-semibold">{g.name}</span>)}</div> : <span className="text-slate-400 text-[11px]">Unassigned</span>}</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold">₹{emp.daily_wage}</td>
+                      <td className="px-4 py-3.5"><div className="flex items-center justify-center gap-1.5">
+                        <button onClick={() => openEditEmp(emp)} className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 rounded-lg" title="Edit Worker"><Edit2 className="w-3.5 h-3.5" /></button>
+                        {canDelete ? <button onClick={() => handleDeleteEmp(emp.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg" title="Remove Worker"><Trash2 className="w-3.5 h-3.5" /></button> : <span className="p-1.5 text-slate-300 dark:text-slate-700" title="Administrator access required"><Lock className="w-3.5 h-3.5" /></span>}
+                      </div></td>
+                    </tr>;
                   })}
+                  {employees.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No workers yet. Add workers, then assign them to a gang.</td></tr>}
                 </tbody>
               </table>
-            </div>
-
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-              {canDelete && (
-                <button
-                  onClick={() => deleteAttendanceForDate(attDate)}
-                  className="px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition"
-                >
-                  Clear Day's Register
-                </button>
-              )}
-              <button
-                onClick={async () => {
-                  const records = employees.map((emp) => ({
-                    employee_id: emp.id,
-                    status: statusMap[emp.id] || 'present',
-                  }));
-                  await saveAttendance(attDate, records);
-                  alert('Attendance registered successfully!');
-                }}
-                className="ml-auto px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md shadow-teal-600/20"
-              >
-                Save Attendance
-              </button>
             </div>
           </div>
         </div>
