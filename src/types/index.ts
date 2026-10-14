@@ -181,6 +181,7 @@ export interface ProductRateMaster {
   id: string;
   name: string;
   category: 'Brick' | 'Solid Block' | 'Hollow Block' | 'Paver' | 'Sand & Aggregate' | 'Raw Material';
+  work_type?: string; // Production, Loading / Unloading, or a custom work type
   size?: string;
   unit: string;
   labor_rate_per_unit: number; // Piece rate earned by labor group
