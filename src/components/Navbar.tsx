@@ -15,8 +15,6 @@ import {
   Cloud,
   LogOut,
   UserCircle,
-  TrendingUp,
-  Calculator,
   Lock,
   Database,
   ExternalLink,
@@ -33,15 +31,6 @@ export const MENU_OPTIONS = [
     icon: LayoutDashboard, 
     color: 'text-blue-500',
     bg: 'bg-blue-500/10 border-blue-500/20'
-  },
-  { 
-    id: 'analytics', 
-    label: 'Turnover & Analytics', 
-    shortLabel: 'Turnover',
-    subtitle: 'Revenue, Profit & Charts',
-    icon: TrendingUp, 
-    color: 'text-sky-500',
-    bg: 'bg-sky-500/10 border-sky-500/20'
   },
   { 
     id: 'materials', 
@@ -105,15 +94,6 @@ export const MENU_OPTIONS = [
     icon: Sliders, 
     color: 'text-purple-500',
     bg: 'bg-purple-500/10 border-purple-500/20'
-  },
-  { 
-    id: 'profit-margin', 
-    label: 'Profit Margin', 
-    shortLabel: 'Margin',
-    subtitle: 'Unit cost & profit margin estimator',
-    icon: Calculator, 
-    color: 'text-emerald-500',
-    bg: 'bg-emerald-500/10 border-emerald-500/20'
   },
 ];
 
