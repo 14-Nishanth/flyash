@@ -446,7 +446,7 @@ export const Employees: React.FC = () => {
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Product / job rate
               <select required value={workProductId || productRates[0]?.id || ''} onChange={(e) => setWorkProductId(e.target.value)} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white">
                 {productRates.length === 0 && <option value="">No rates configured</option>}
-                {productRates.map((p) => <option key={p.id} value={p.id}>{p.name} — ₹{Number(p.labor_rate_per_unit).toFixed(2)}/{workKind === 'production' && p.pieces_per_tray > 0 ? 'piece' : p.unit}</option>)}
+                {productRates.map((p) => <option key={p.id} value={p.id}>{p.name} — ₹{Number(p.labor_rate_per_unit).toFixed(2)}/{(p.work_type || 'Production').toLowerCase() === 'production' && p.pieces_per_tray > 0 ? 'piece' : p.unit}</option>)}
               </select>
               <span className="block text-[10px] text-slate-400">Set the labor rate (e.g. ₹0.50 for loading/unloading) in Products & Rates.</span>
             </label>
