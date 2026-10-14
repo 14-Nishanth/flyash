@@ -6,7 +6,6 @@ import { Dashboard } from './components/Dashboard';
 import { Materials } from './components/Materials';
 import { Parties } from './components/Parties';
 import { Production } from './components/Production';
-import { Analytics } from './components/Analytics';
 import { Employees } from './components/Employees';
 import { Wages } from './components/Wages';
 import { Expenses } from './components/Expenses';
@@ -144,7 +143,6 @@ export const App: React.FC = () => {
         >
           <main className="flex-1 max-w-7xl w-full mx-auto px-2.5 sm:px-5 lg:px-6 py-4 sm:py-5 pb-16">
             {activeTab === 'dashboard' && <Dashboard />}
-            {(activeTab === 'analytics' || activeTab === 'profit-margin') && <Analytics focusProfitMargin={activeTab === 'profit-margin'} />}
             {activeTab === 'materials' && <Materials />}
             {activeTab === 'parties' && <Parties />}
             {activeTab === 'production' && <Production />}
