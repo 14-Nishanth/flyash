@@ -688,6 +688,7 @@ export const Employees: React.FC = () => {
                     <tr key={pr.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                       <td className="px-4 py-3.5 font-sans">
                         <div className="font-bold text-slate-900 dark:text-white text-sm">{pr.name}</div>
+                        <div className="text-[10px] text-indigo-600 dark:text-indigo-300 mt-0.5">Work type: {pr.work_type || 'Production'}</div>
                         {pr.notes && <div className="text-[11px] text-slate-400">{pr.notes}</div>}
                       </td>
                       <td className="px-4 py-3.5 font-sans">
