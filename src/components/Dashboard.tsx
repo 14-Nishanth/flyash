@@ -10,8 +10,6 @@ import {
   Plus, 
   Share2, 
   ArrowUpRight,
-  TrendingUp,
-  Calculator,
   Users,
   Hammer,
   ClipboardCheck,
@@ -96,26 +94,6 @@ export const Dashboard: React.FC = () => {
 
   // Directory of all system pages and modules
   const allPageShortcuts = [
-    {
-      id: 'analytics',
-      title: 'Turnover & Analytics',
-      subtitle: 'Week-wise breakdown (W1–W5), monthly profit, margin % & WhatsApp payment slips',
-      badge: `₹${outwards.reduce((sum, o) => sum + o.amount, 0).toLocaleString()} Total Sales`,
-      icon: TrendingUp,
-      color: 'from-blue-500 to-indigo-600',
-      bgLight: 'bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/50',
-      iconColor: 'text-blue-600 dark:text-blue-400',
-    },
-    {
-      id: 'profit-margin',
-      title: 'Profit Margin Calculator',
-      subtitle: 'Open the unit manufacturing cost and profit margin estimator directly',
-      badge: `${productRates.length} Products`,
-      icon: Calculator,
-      color: 'from-emerald-500 to-teal-600',
-      bgLight: 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50',
-      iconColor: 'text-emerald-600 dark:text-emerald-400',
-    },
     {
       id: 'materials',
       title: 'Materials & Stock',
@@ -238,7 +216,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
           <span className="hidden sm:inline-flex text-xs font-mono font-bold text-slate-400">
-            8 Modules
+            6 Modules
           </span>
         </div>
 
