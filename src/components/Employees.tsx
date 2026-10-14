@@ -44,7 +44,6 @@ export const Employees: React.FC = () => {
   // Daily gang work entry: rates and production multipliers come from Products & Rates.
   const [workDate, setWorkDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [workGroupId, setWorkGroupId] = useState('');
-  const [workKind, setWorkKind] = useState<'production' | 'loading'>('production');
   const [workProductId, setWorkProductId] = useState('');
   const [workCount, setWorkCount] = useState('25');
   const [workNotes, setWorkNotes] = useState('');
@@ -56,12 +55,14 @@ export const Employees: React.FC = () => {
     .map((id) => employees.find((e) => e.id === id))
     .filter((e) => e && e.is_active);
   const enteredWorkCount = Math.max(0, Number(workCount) || 0);
+  const workType = selectedWorkProduct?.work_type || 'Production';
+  const isProductionWork = workType.toLowerCase() === 'production';
   const workTraySize = selectedWorkProduct?.pieces_per_tray || 0;
   const workWastagePerTray = selectedWorkProduct?.wastage_per_tray || 0;
-  const workGrossQty = workKind === 'production' && workTraySize > 0
+  const workGrossQty = isProductionWork && workTraySize > 0
     ? enteredWorkCount * workTraySize
     : enteredWorkCount;
-  const workWastage = workKind === 'production' && workTraySize > 0
+  const workWastage = isProductionWork && workTraySize > 0
     ? enteredWorkCount * workWastagePerTray
     : 0;
   const workPayableQty = Math.max(0, workGrossQty - workWastage);
@@ -77,15 +78,15 @@ export const Employees: React.FC = () => {
     if (enteredWorkCount <= 0 || workRate <= 0) { alert('Enter a quantity and make sure the selected product has a labor rate greater than zero.'); return; }
     setWorkSaving(true);
     try {
-      const kindLabel = workKind === 'production' ? 'Production' : 'Loading / Unloading';
+      const kindLabel = workType;
       await addJob({
         date: workDate,
         group_name: selectedWorkGroup.name,
         job_type: 'Gang Work',
-        product_name: workKind === 'production' ? selectedWorkProduct.name : `${kindLabel} — ${selectedWorkProduct.name}`,
-        tray_count: workKind === 'production' && workTraySize > 0 ? enteredWorkCount : 0,
-        pieces_per_tray: workKind === 'production' ? workTraySize : 0,
-        wastage_per_tray: workKind === 'production' ? workWastagePerTray : 0,
+        product_name: selectedWorkProduct.name,
+        tray_count: isProductionWork && workTraySize > 0 ? enteredWorkCount : 0,
+        pieces_per_tray: isProductionWork ? workTraySize : 0,
+        wastage_per_tray: isProductionWork ? workWastagePerTray : 0,
         total_wastage: workWastage,
         gross_quantity: workGrossQty,
         quantity: workPayableQty,
@@ -98,7 +99,7 @@ export const Employees: React.FC = () => {
         worker_ids: activeWorkMembers.map((m) => m!.id),
         notes: [
           kindLabel,
-          workKind === 'production' && workTraySize > 0 ? `Plates: ${enteredWorkCount}` : `Quantity: ${enteredWorkCount}`,
+          isProductionWork && workTraySize > 0 ? `Plates: ${enteredWorkCount}` : `Quantity: ${enteredWorkCount}`,
           `Gross: ${workGrossQty}`,
           workWastage > 0 ? `Wastage: ${workWastage}` : '',
           `Payable: ${workPayableQty}`,
@@ -154,6 +155,7 @@ export const Employees: React.FC = () => {
   // Product Rate Form State
   const [prodName, setProdName] = useState('');
   const [prodCategory, setProdCategory] = useState<any>('Solid Block');
+  const [prodWorkType, setProdWorkType] = useState('Production');
   const [prodSize, setProdSize] = useState('6 inch');
   const [prodUnit, setProdUnit] = useState('Pieces');
   const [prodLaborRate, setProdLaborRate] = useState('1.50');
@@ -286,6 +288,7 @@ export const Employees: React.FC = () => {
     setEditingRate(null);
     setProdName('');
     setProdCategory('Solid Block');
+    setProdWorkType('Production');
     setProdSize('6 inch');
     setProdUnit('Pieces');
     setProdLaborRate('1.50');
@@ -301,6 +304,7 @@ export const Employees: React.FC = () => {
     setEditingRate(pr);
     setProdName(pr.name);
     setProdCategory(pr.category);
+    setProdWorkType(pr.work_type || 'Production');
     setProdSize(pr.size || '');
     setProdUnit(pr.unit);
     setProdLaborRate(String(pr.labor_rate_per_unit));
@@ -317,6 +321,7 @@ export const Employees: React.FC = () => {
     const payload = {
       name: prodName.trim(),
       category: prodCategory,
+      work_type: prodWorkType,
       size: prodSize.trim(),
       unit: prodUnit,
       labor_rate_per_unit: parseFloat(prodLaborRate) || 0,
@@ -435,11 +440,8 @@ export const Employees: React.FC = () => {
                 {workerGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </label>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Work type
-              <select value={workKind} onChange={(e) => setWorkKind(e.target.value as 'production' | 'loading')} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white">
-                <option value="production">Production (plates/trays)</option>
-                <option value="loading">Loading / Unloading (quantity)</option>
-              </select>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Work type (from Products & Rates)
+              <input readOnly value={workType} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white" />
             </label>
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Product / job rate
               <select required value={workProductId || productRates[0]?.id || ''} onChange={(e) => setWorkProductId(e.target.value)} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white">
@@ -448,16 +450,16 @@ export const Employees: React.FC = () => {
               </select>
               <span className="block text-[10px] text-slate-400">Set the labor rate (e.g. ₹0.50 for loading/unloading) in Products & Rates.</span>
             </label>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">{workKind === 'production' && workTraySize > 0 ? 'Plates / trays produced' : 'Quantity handled'}
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">{isProductionWork && workTraySize > 0 ? 'Plates / trays produced' : 'Quantity handled'}
               <input required min="0.01" step="any" type="number" value={workCount} onChange={(e) => setWorkCount(e.target.value)} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white" />
             </label>
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Labor rate (from Products & Rates)
-              <input readOnly value={`₹${workRate.toFixed(2)} / ${workKind === 'production' && workTraySize > 0 ? 'piece' : (selectedWorkProduct?.unit || 'unit')}`} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white" />
+              <input readOnly value={`₹${workRate.toFixed(2)} / ${isProductionWork && workTraySize > 0 ? 'piece' : (selectedWorkProduct?.unit || 'unit')}`} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white" />
             </label>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3"><div className="text-xs text-slate-500">Active gang members</div><div className="text-xl font-extrabold text-slate-900 dark:text-white">{activeWorkMembers.length}</div></div>
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3"><div className="text-xs text-slate-500">{workKind === 'production' && workTraySize > 0 ? 'Total produced' : 'Total quantity'}</div><div className="text-xl font-extrabold text-slate-900 dark:text-white">{workGrossQty.toLocaleString('en-IN')}</div></div>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3"><div className="text-xs text-slate-500">{isProductionWork && workTraySize > 0 ? 'Total produced' : 'Total quantity'}</div><div className="text-xl font-extrabold text-slate-900 dark:text-white">{workGrossQty.toLocaleString('en-IN')}</div></div>
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3"><div className="text-xs text-slate-500">Wastage deduction</div><div className="text-xl font-extrabold text-rose-600">{workWastage.toLocaleString('en-IN')}</div></div>
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3"><div className="text-xs text-slate-500">Payable quantity</div><div className="text-xl font-extrabold text-slate-900 dark:text-white">{workPayableQty.toLocaleString('en-IN')}</div></div>
             <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 p-3"><div className="text-xs text-emerald-700 dark:text-emerald-400">Total gang wage</div><div className="text-xl font-extrabold text-emerald-700 dark:text-emerald-400">{'₹' + workTotalWage.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div></div>
@@ -982,6 +984,15 @@ export const Employees: React.FC = () => {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Work Type *</label>
+                <select value={prodWorkType} onChange={(e) => setProdWorkType(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
+                  <option value="Production">Production (plates / trays)</option>
+                  <option value="Loading / Unloading">Loading / Unloading</option>
+                  <option value="Other">Other work</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">This work type will be used automatically in Daily Work & Wages.</p>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Category</label>
