@@ -45,7 +45,7 @@ export const Dashboard: React.FC = () => {
   // Today's Calculations
   const todayProduction = jobs
     .filter((j) => j.date === todayStr)
-    .reduce((sum, j) => sum + j.quantity, 0);
+    .reduce((sum, j) => sum + (Number(j.gross_quantity) > 0 ? Number(j.gross_quantity) : Number(j.quantity) || 0), 0);
 
   const todayLaborCost = jobs
     .filter((j) => j.date === todayStr)
