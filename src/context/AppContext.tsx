@@ -416,6 +416,7 @@ function sanitizeJobForDb(j: any) {
     total_amount: Number(j.total_amount) || 0,
     worker_count: Number(j.worker_count) || 1,
     wage_per_worker: Number(j.wage_per_worker) || 0,
+    worker_ids: Array.isArray(j.worker_ids) ? j.worker_ids.filter((id: unknown) => typeof id === 'string') : [],
     vehicle_no: j.vehicle_no || '',
     notes: j.notes || '',
     created_at: j.created_at || new Date().toISOString(),
