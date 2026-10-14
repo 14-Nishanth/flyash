@@ -31,6 +31,7 @@ export const Employees: React.FC = () => {
     updateGroup,
     deleteGroup,
     addProductRate,
+    addJob,
     updateProductRate,
     deleteProductRate,
     canDelete,
@@ -38,7 +39,81 @@ export const Employees: React.FC = () => {
     calculateGroupWageDistribution,
   } = useApp();
 
-  const [subTab, setSubTab] = useState<'groups' | 'workers' | 'rates'>('groups');
+  const [subTab, setSubTab] = useState<'groups' | 'workers' | 'rates' | 'daily-work'>('groups');
+
+  // Daily gang work entry: rates and production multipliers come from Products & Rates.
+  const [workDate, setWorkDate] = useState(new Date().toLocaleDateString('en-CA'));
+  const [workGroupId, setWorkGroupId] = useState('');
+  const [workKind, setWorkKind] = useState<'production' | 'loading'>('production');
+  const [workProductId, setWorkProductId] = useState('');
+  const [workCount, setWorkCount] = useState('25');
+  const [workNotes, setWorkNotes] = useState('');
+  const [workSaving, setWorkSaving] = useState(false);
+
+  const selectedWorkGroup = workerGroups.find((g) => g.id === workGroupId);
+  const selectedWorkProduct = productRates.find((p) => p.id === workProductId) || productRates[0];
+  const activeWorkMembers = (selectedWorkGroup?.member_ids || [])
+    .map((id) => employees.find((e) => e.id === id))
+    .filter((e) => e && e.is_active);
+  const enteredWorkCount = Math.max(0, Number(workCount) || 0);
+  const workTraySize = selectedWorkProduct?.pieces_per_tray || 0;
+  const workWastagePerTray = selectedWorkProduct?.wastage_per_tray || 0;
+  const workGrossQty = workKind === 'production' && workTraySize > 0
+    ? enteredWorkCount * workTraySize
+    : enteredWorkCount;
+  const workWastage = workKind === 'production' && workTraySize > 0
+    ? enteredWorkCount * workWastagePerTray
+    : 0;
+  const workPayableQty = Math.max(0, workGrossQty - workWastage);
+  const workRate = Number(selectedWorkProduct?.labor_rate_per_unit) || 0;
+  const workTotalWage = workPayableQty * workRate;
+  const workWagePerWorker = activeWorkMembers.length ? workTotalWage / activeWorkMembers.length : 0;
+
+  const handleSaveDailyWork = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedWorkGroup) { alert('Select the gang that completed this work.'); return; }
+    if (!selectedWorkProduct) { alert('Add a product or job rate in Products & Rates first.'); return; }
+    if (activeWorkMembers.length === 0) { alert('Add active employees to this gang first.'); return; }
+    if (enteredWorkCount <= 0 || workRate <= 0) { alert('Enter a quantity and make sure the selected product has a labor rate greater than zero.'); return; }
+    setWorkSaving(true);
+    try {
+      const kindLabel = workKind === 'production' ? 'Production' : 'Loading / Unloading';
+      await addJob({
+        date: workDate,
+        group_name: selectedWorkGroup.name,
+        job_type: 'Gang Work',
+        product_name: workKind === 'production' ? selectedWorkProduct.name : `${kindLabel} — ${selectedWorkProduct.name}`,
+        tray_count: workKind === 'production' && workTraySize > 0 ? enteredWorkCount : 0,
+        pieces_per_tray: workKind === 'production' ? workTraySize : 0,
+        wastage_per_tray: workKind === 'production' ? workWastagePerTray : 0,
+        total_wastage: workWastage,
+        gross_quantity: workGrossQty,
+        quantity: workPayableQty,
+        rate_per_unit: workRate,
+        gross_amount: workGrossQty * workRate,
+        wastage_amount: workWastage * workRate,
+        total_amount: workTotalWage,
+        worker_count: activeWorkMembers.length,
+        wage_per_worker: Math.round(workWagePerWorker * 100) / 100,
+        worker_ids: activeWorkMembers.map((m) => m!.id),
+        notes: [
+          kindLabel,
+          workKind === 'production' && workTraySize > 0 ? `Plates: ${enteredWorkCount}` : `Quantity: ${enteredWorkCount}`,
+          `Gross: ${workGrossQty}`,
+          workWastage > 0 ? `Wastage: ${workWastage}` : '',
+          `Payable: ${workPayableQty}`,
+          workNotes.trim(),
+          `Workers: ${activeWorkMembers.map((m) => m!.name).join(', ')}`,
+        ].filter(Boolean).join(' | '),
+      });
+      setWorkNotes('');
+      alert('Work and calculated equal gang wages saved to the Wages Sheet.');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not save the work entry.');
+    } finally {
+      setWorkSaving(false);
+    }
+  };
 
 
   // Modals state
@@ -302,6 +377,16 @@ export const Employees: React.FC = () => {
         {/* Sub-tab Switcher */}
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
           <button
+            onClick={() => setSubTab('daily-work')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              subTab === 'daily-work'
+                ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            <Calculator className="w-3.5 h-3.5" /> Daily Work & Wages
+          </button>
+          <button
             onClick={() => setSubTab('groups')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
               subTab === 'groups'
@@ -333,6 +418,61 @@ export const Employees: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {subTab === 'daily-work' && (
+        <form onSubmit={handleSaveDailyWork} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 space-y-5 shadow-sm">
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">Record Gang Work</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose the gang, work type and rate from Products & Rates. The calculated wage is saved to the Wages Sheet and divided equally among active gang members.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Work date
+              <input required type="date" value={workDate} onChange={(e) => setWorkDate(e.target.value)} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white" />
+            </label>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Employee gang
+              <select required value={workGroupId} onChange={(e) => setWorkGroupId(e.target.value)} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white">
+                <option value="">Select gang</option>
+                {workerGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Work type
+              <select value={workKind} onChange={(e) => setWorkKind(e.target.value as 'production' | 'loading')} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white">
+                <option value="production">Production (plates/trays)</option>
+                <option value="loading">Loading / Unloading (quantity)</option>
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Product / job rate
+              <select required value={workProductId || productRates[0]?.id || ''} onChange={(e) => setWorkProductId(e.target.value)} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white">
+                {productRates.length === 0 && <option value="">No rates configured</option>}
+                {productRates.map((p) => <option key={p.id} value={p.id}>{p.name} — ₹{Number(p.labor_rate_per_unit).toFixed(2)}/{workKind === 'production' && p.pieces_per_tray > 0 ? 'piece' : p.unit}</option>)}
+              </select>
+              <span className="block text-[10px] text-slate-400">Set the labor rate (e.g. ₹0.50 for loading/unloading) in Products & Rates.</span>
+            </label>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">{workKind === 'production' && workTraySize > 0 ? 'Plates / trays produced' : 'Quantity handled'}
+              <input required min="0.01" step="any" type="number" value={workCount} onChange={(e) => setWorkCount(e.target.value)} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white" />
+            </label>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Labor rate (from Products & Rates)
+              <input readOnly value={`₹${workRate.toFixed(2)} / ${workKind === 'production' && workTraySize > 0 ? 'piece' : (selectedWorkProduct?.unit || 'unit')}`} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white" />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3"><div className="text-xs text-slate-500">Active gang members</div><div className="text-xl font-extrabold text-slate-900 dark:text-white">{activeWorkMembers.length}</div></div>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3"><div className="text-xs text-slate-500">{workKind === 'production' && workTraySize > 0 ? 'Total produced' : 'Total quantity'}</div><div className="text-xl font-extrabold text-slate-900 dark:text-white">{workGrossQty.toLocaleString('en-IN')}</div></div>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3"><div className="text-xs text-slate-500">Wastage deduction</div><div className="text-xl font-extrabold text-rose-600">{workWastage.toLocaleString('en-IN')}</div></div>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3"><div className="text-xs text-slate-500">Payable quantity</div><div className="text-xl font-extrabold text-slate-900 dark:text-white">{workPayableQty.toLocaleString('en-IN')}</div></div>
+            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 p-3"><div className="text-xs text-emerald-700 dark:text-emerald-400">Total gang wage</div><div className="text-xl font-extrabold text-emerald-700 dark:text-emerald-400">{'₹' + workTotalWage.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div></div>
+          </div>
+          <div className="rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/20 p-4">
+            <div className="text-xs text-emerald-700 dark:text-emerald-400">Equal wage per employee</div>
+            <div className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-400">{'₹' + workWagePerWorker.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+            <div className="flex flex-wrap gap-2 mt-2">{activeWorkMembers.map((m) => <span key={m!.id} className="rounded-full bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900 px-3 py-1 text-xs text-slate-700 dark:text-slate-200">{m!.name}</span>)}</div>
+          </div>
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Notes (optional)
+            <textarea value={workNotes} onChange={(e) => setWorkNotes(e.target.value)} rows={2} placeholder="Optional work details..." className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white" />
+          </label>
+          <button type="submit" disabled={workSaving || !productRates.length} className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm">{workSaving ? 'Saving...' : 'Save Work to Wages Sheet'}</button>
+        </form>
+      )}
 
       {/* ========================================================================= */}
       {/* SUB-TAB 1: WORKER GANGS & DYNAMIC WAGE DIVISION RULES */}
