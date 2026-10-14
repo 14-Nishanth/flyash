@@ -781,7 +781,7 @@ export const Employees: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Base Daily Attendance Wage (₹)
+                  Base Daily Wage (₹)
                 </label>
                 <input
                   type="number"
