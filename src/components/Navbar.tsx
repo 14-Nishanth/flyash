@@ -18,7 +18,8 @@ import {
   Lock,
   Database,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  TrendingUp
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
 
@@ -85,6 +86,15 @@ export const MENU_OPTIONS = [
     icon: Receipt, 
     color: 'text-rose-500',
     bg: 'bg-rose-500/10 border-rose-500/20'
+  },
+  { 
+    id: 'analytics', 
+    label: 'Turnover & Manufacturing Cost', 
+    shortLabel: 'Turnover',
+    subtitle: 'Weekly Turnover & Unit Manufacturing Cost',
+    icon: TrendingUp, 
+    color: 'text-cyan-500', 
+    bg: 'bg-cyan-500/10 border-cyan-500/20'
   },
   { 
     id: 'settings', 
