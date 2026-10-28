@@ -1424,29 +1424,74 @@ return true;
     return opBal + totalOutward - totalInward - unpaidExpenses - received + (paid + partyPaidExpenses) + adjCredit - adjDebit;
   };
 
-  // Accurate Raw Material Stock (Only Mentioned / User Recorded)
+  // Raw-material stock is displayed in a consistent unit. Dust/sand purchased
+  // in "Units" is converted using the plant's confirmed rate: 1 unit = 3.2 tonnes.
+  // This only changes calculated display totals; original purchase records remain intact.
   const getRawMaterialStock = (): { [mat: string]: { quantity: number; unit: string; secondaryInfo?: string } } => {
     const result: { [mat: string]: { quantity: number; unit: string; secondaryInfo?: string } } = {};
-    inwards.forEach((item) => {
-      const mat = item.material_type;
-      const unit = item.quantity_unit || 'Ton';
-      if (!result[mat]) {
-        result[mat] = { quantity: 0, unit };
+
+    const canonicalMaterialName = (rawName: string) => {
+      const name = String(rawName || '').trim().replace(/\\s+/g, ' ');
+      const key = name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      if (key.includes('cool dust') || key.includes('cooldust') || key.includes('fine p sand dust')) {
+        return 'Cool Dust (Fine P-Sand Dust)';
       }
-      result[mat].quantity += item.quantity_mt;
+      if (key.includes('quarry dust') || key.includes('blue metal dust')) {
+        return 'Quarry Dust / Blue Metal Dust';
+      }
+      return name || 'Unspecified Material';
+    };
+
+    inwards.forEach((item) => {
+      const mat = canonicalMaterialName(item.material_type);
+      const rawUnit = String(item.quantity_unit || 'Ton').trim().toLowerCase();
+      const quantity = Number(item.quantity_mt) || 0;
+      const isCement = mat.toLowerCase().includes('cement');
+      const isDustOrSand = /dust|sand|aggregate|blue metal/.test(mat.toLowerCase());
+
+      let stockQuantity = quantity;
+      let stockUnit = 'Ton';
+      if (['ton', 'tons', 'mt', 'tonne', 'tonnes'].includes(rawUnit)) {
+        stockQuantity = quantity;
+      } else if (['kg', 'kgs', 'kilogram', 'kilograms'].includes(rawUnit)) {
+        stockQuantity = quantity / 1000;
+      } else if (['bag', 'bags'].includes(rawUnit)) {
+        if (isCement) {
+          stockQuantity = quantity * 0.05; // standard 50 kg cement bag
+        } else {
+          stockQuantity = quantity;
+          stockUnit = 'Bags';
+        }
+      } else if (['unit', 'units', 'pcs', 'pieces'].includes(rawUnit)) {
+        if (isDustOrSand) {
+          stockQuantity = quantity * 3.2; // confirmed plant conversion: 1 unit = 3.2 tonnes
+        } else {
+          stockQuantity = quantity;
+          stockUnit = item.quantity_unit || 'Units';
+        }
+      } else {
+        stockQuantity = quantity;
+        stockUnit = item.quantity_unit || 'Units';
+      }
+
+      if (!result[mat]) result[mat] = { quantity: 0, unit: stockUnit };
+      if (result[mat].unit !== stockUnit) {
+        // Keep unlike units separate rather than accidentally adding bags/pieces to tonnes.
+        const separateKey = stockUnit === 'Ton' ? mat : `${mat} (${stockUnit})`;
+        if (!result[separateKey]) result[separateKey] = { quantity: 0, unit: stockUnit };
+        result[separateKey].quantity += stockQuantity;
+      } else {
+        result[mat].quantity += stockQuantity;
+      }
     });
 
-    // Add secondary bag conversions for Cement if stored in Tons
     Object.keys(result).forEach((mat) => {
-      const isCement = mat.toLowerCase().includes('cement');
-      if (isCement) {
-        if (result[mat].unit === 'Ton' || result[mat].unit === 'MT') {
-          const bags = result[mat].quantity * 20;
-          result[mat].secondaryInfo = `(${bags.toLocaleString()} Bags @ 50kg)`;
-        } else if (result[mat].unit === 'Bags') {
-          const tons = (result[mat].quantity / 20).toFixed(2);
-          result[mat].secondaryInfo = `(${tons} Tons)`;
-        }
+      if (mat.toLowerCase().includes('cement') && result[mat].unit === 'Ton') {
+        const bags = result[mat].quantity * 20;
+        result[mat].secondaryInfo = `(${bags.toLocaleString(undefined, { maximumFractionDigits: 2 })} Bags @ 50kg)`;
+      }
+      if (result[mat].unit === 'Ton') {
+        result[mat].quantity = Math.round(result[mat].quantity * 1000) / 1000;
       }
     });
 
