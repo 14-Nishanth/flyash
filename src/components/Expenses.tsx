@@ -48,6 +48,8 @@ export const Expenses: React.FC = () => {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   // Quick Settle Modal State
   const [settleModalOpen, setSettleModalOpen] = useState(false);
@@ -426,6 +428,8 @@ export const Expenses: React.FC = () => {
   // Filtered expenses
   const filteredExpenses = useMemo(() => {
     return expenses.filter((exp) => {
+      if (dateFrom && exp.date < dateFrom) return false;
+      if (dateTo && exp.date > dateTo) return false;
       const isUnpaid = exp.payment_status === 'unpaid' || exp.is_paid === false || exp.payment_mode === 'credit';
       const isSupplierPayment = exp.expense_type === 'supplier_payment' || exp.category.includes('Supplier Due Payment');
       
@@ -457,8 +461,8 @@ export const Expenses: React.FC = () => {
       }
 
       return true;
-    });
-  }, [expenses, selectedFilter, searchTerm]);
+    }).sort((a, b) => b.date.localeCompare(a.date) || String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  }, [expenses, selectedFilter, searchTerm, dateFrom, dateTo]);
 
   // Calculations for KPI Cards
   const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -652,6 +656,12 @@ export const Expenses: React.FC = () => {
           <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
             Showing {filteredExpenses.length} of {expenses.length} Records
           </span>
+        </div>
+        <div className="px-4 py-3 flex flex-col sm:flex-row gap-3 sm:items-end border-b border-slate-100 dark:border-slate-800">
+          <div className="flex-1"><label className="block text-xs font-semibold mb-1">From date</label><input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-800" /></div>
+          <div className="flex-1"><label className="block text-xs font-semibold mb-1">To date</label><input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-800" /></div>
+          <button type="button" onClick={() => { setDateFrom(''); setDateTo(''); }} className="px-4 py-2 rounded-lg border text-sm font-semibold">Show all dates</button>
+          <span className="text-xs text-slate-500">{filteredExpenses.length} matching records</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
