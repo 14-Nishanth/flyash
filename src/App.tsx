@@ -10,6 +10,7 @@ import { Employees } from './components/Employees';
 import { Wages } from './components/Wages';
 import { Expenses } from './components/Expenses';
 import { Settings } from './components/Settings';
+import { Analytics } from './components/Analytics';
 import { Database, LogOut, Sun, Moon, ChevronUp, ChevronDown } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -149,6 +150,8 @@ export const App: React.FC = () => {
             {(activeTab === 'employees' || activeTab === 'attendance') && <Employees />}
             {activeTab === 'wages' && <Wages />}
             {activeTab === 'expenses' && <Expenses />}
+            {activeTab === 'analytics' && <Analytics />}
+            {activeTab === 'profit-margin' && <Analytics focusProfitMargin />}
             {activeTab === 'settings' && <Settings />}
           </main>
 
