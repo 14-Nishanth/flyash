@@ -1474,15 +1474,12 @@ return true;
         stockUnit = item.quantity_unit || 'Units';
       }
 
-      if (!result[mat]) result[mat] = { quantity: 0, unit: stockUnit };
-      if (result[mat].unit !== stockUnit) {
-        // Keep unlike units separate rather than accidentally adding bags/pieces to tonnes.
-        const separateKey = stockUnit === 'Ton' ? mat : `${mat} (${stockUnit})`;
-        if (!result[separateKey]) result[separateKey] = { quantity: 0, unit: stockUnit };
-        result[separateKey].quantity += stockQuantity;
-      } else {
-        result[mat].quantity += stockQuantity;
-      }
+      const resultKey = result[mat] && result[mat].unit !== stockUnit
+        ? `${mat} (${stockUnit})`
+        : mat;
+      if (!result[resultKey]) result[resultKey] = { quantity: 0, unit: stockUnit };
+      // Never add unlike units (for example bags and tonnes) into one total.
+      result[resultKey].quantity += stockQuantity;
     });
 
     Object.keys(result).forEach((mat) => {
