@@ -23,6 +23,14 @@ export const Materials: React.FC = () => {
   const [outwardModalOpen, setOutwardModalOpen] = useState(false);
   const [editingInward, setEditingInward] = useState<MaterialInward | null>(null);
   const [editingOutward, setEditingOutward] = useState<MaterialOutward | null>(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const inwardsByDate = [...inwards]
+    .filter((item) => (!dateFrom || item.date >= dateFrom) && (!dateTo || item.date <= dateTo))
+    .sort((a, b) => b.date.localeCompare(a.date) || String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  const outwardsByDate = [...outwards]
+    .filter((item) => (!dateFrom || item.date >= dateFrom) && (!dateTo || item.date <= dateTo))
+    .sort((a, b) => b.date.localeCompare(a.date) || String(b.created_at || '').localeCompare(String(a.created_at || '')));
 
   // Duplicate warning modal state
   const [duplicateModal, setDuplicateModal] = useState<{
@@ -226,6 +234,12 @@ export const Materials: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
+        <div className="flex-1"><label className="block text-xs font-semibold mb-1">From date</label><input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-800" /></div>
+        <div className="flex-1"><label className="block text-xs font-semibold mb-1">To date</label><input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-800" /></div>
+        <button type="button" onClick={() => { setDateFrom(''); setDateTo(''); }} className="px-4 py-2 rounded-lg border text-sm font-semibold">Show all dates</button>
+        <span className="text-xs text-slate-500">{inwardsByDate.length} inward · {outwardsByDate.length} dispatch records</span>
+      </div>
       {/* Top action bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -258,7 +272,7 @@ export const Materials: React.FC = () => {
           <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Truck className="w-4 h-4 text-indigo-600" /> Raw Material Inward Register
           </h3>
-          <span className="text-xs text-slate-500 font-medium">Total: {inwards.length} records</span>
+          <span className="text-xs text-slate-500 font-medium">Showing: {inwardsByDate.length} / {inwards.length} records</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
@@ -275,7 +289,7 @@ export const Materials: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-              {inwards.map((item) => (
+              {inwardsByDate.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                   <td className="px-4 py-3 text-slate-500 font-mono">{item.date}</td>
                   <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">{item.party_name}</td>
@@ -318,7 +332,7 @@ export const Materials: React.FC = () => {
                   </td>
                 </tr>
               ))}
-              {inwards.length === 0 && (
+              {inwardsByDate.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
                     No inward raw materials recorded yet
@@ -336,7 +350,7 @@ export const Materials: React.FC = () => {
           <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Truck className="w-4 h-4 text-amber-600" /> Finished Goods Outward Dispatches
           </h3>
-          <span className="text-xs text-slate-500 font-medium">Total: {outwards.length} records</span>
+          <span className="text-xs text-slate-500 font-medium">Showing: {outwardsByDate.length} / {outwards.length} records</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
@@ -353,7 +367,7 @@ export const Materials: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-              {outwards.map((item) => (
+              {outwardsByDate.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                   <td className="px-4 py-3 text-slate-500 font-mono">{item.date}</td>
                   <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
@@ -405,7 +419,7 @@ export const Materials: React.FC = () => {
                   </td>
                 </tr>
               ))}
-              {outwards.length === 0 && (
+              {outwardsByDate.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
                     No outward dispatches recorded yet
