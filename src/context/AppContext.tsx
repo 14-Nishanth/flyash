@@ -1442,54 +1442,45 @@ return true;
       return name || 'Unspecified Material';
     };
 
+    // Keep the quantity and unit the user entered. Convert only for optional
+    // equivalent information; never replace the displayed stock unit with Ton.
+    const normalizeUnit = (rawUnit: string) => {
+      const unit = String(rawUnit || 'Ton').trim();
+      const key = unit.toLowerCase();
+      if (['unit', 'units'].includes(key)) return 'Units';
+      if (['pc', 'pcs', 'piece', 'pieces'].includes(key)) return 'Pieces';
+      if (['ton', 'tons', 'mt', 'tonne', 'tonnes'].includes(key)) return 'Ton';
+      if (['kg', 'kgs', 'kilogram', 'kilograms'].includes(key)) return 'Kg';
+      if (['bag', 'bags'].includes(key)) return 'Bags';
+      return unit || 'Units';
+    };
+
     inwards.forEach((item) => {
       const mat = canonicalMaterialName(item.material_type);
-      const rawUnit = String(item.quantity_unit || 'Ton').trim().toLowerCase();
       const quantity = Number(item.quantity_mt) || 0;
+      const unit = normalizeUnit(item.quantity_unit || 'Ton');
       const isCement = mat.toLowerCase().includes('cement');
       const isDustOrSand = /dust|sand|aggregate|blue metal/.test(mat.toLowerCase());
 
-      let stockQuantity = quantity;
-      let stockUnit = 'Ton';
-      if (['ton', 'tons', 'mt', 'tonne', 'tonnes'].includes(rawUnit)) {
-        stockQuantity = quantity;
-      } else if (['kg', 'kgs', 'kilogram', 'kilograms'].includes(rawUnit)) {
-        stockQuantity = quantity / 1000;
-      } else if (['bag', 'bags'].includes(rawUnit)) {
-        if (isCement) {
-          stockQuantity = quantity * 0.05; // standard 50 kg cement bag
-        } else {
-          stockQuantity = quantity;
-          stockUnit = 'Bags';
-        }
-      } else if (['unit', 'units', 'pcs', 'pieces'].includes(rawUnit)) {
-        if (isDustOrSand) {
-          stockQuantity = quantity * 3.2; // confirmed plant conversion: 1 unit = 3.2 tonnes
-        } else {
-          stockQuantity = quantity;
-          stockUnit = item.quantity_unit || 'Units';
-        }
-      } else {
-        stockQuantity = quantity;
-        stockUnit = item.quantity_unit || 'Units';
-      }
+      // Aggregate only records with the same material AND unit. This preserves
+      // entered units and avoids mixing Units, Kg, Bags, and Ton in one balance.
+      const resultKey = `${mat} (${unit})`;
+      if (!result[resultKey]) result[resultKey] = { quantity: 0, unit };
+      result[resultKey].quantity += quantity;
 
-      const resultKey = result[mat] && result[mat].unit !== stockUnit
-        ? `${mat} (${stockUnit})`
-        : mat;
-      if (!result[resultKey]) result[resultKey] = { quantity: 0, unit: stockUnit };
-      // Never add unlike units (for example bags and tonnes) into one total.
-      result[resultKey].quantity += stockQuantity;
+      if (isDustOrSand && unit === 'Units') {
+        result[resultKey].secondaryInfo = `≈ ${(result[resultKey].quantity * 3.2).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes (1 Unit = 3.2 Tonnes)`;
+      } else if (isDustOrSand && unit === 'Pieces') {
+        result[resultKey].secondaryInfo = `≈ ${(result[resultKey].quantity * 3.2).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes (assuming 1 Piece = 1 Unit)`;
+      } else if (unit === 'Kg') {
+        result[resultKey].secondaryInfo = `≈ ${(result[resultKey].quantity / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes`;
+      } else if (unit === 'Bags' && isCement) {
+        result[resultKey].secondaryInfo = `≈ ${(result[resultKey].quantity * 0.05).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes (50 kg/bag)`;
+      }
     });
 
     Object.keys(result).forEach((mat) => {
-      if (mat.toLowerCase().includes('cement') && result[mat].unit === 'Ton') {
-        const bags = result[mat].quantity * 20;
-        result[mat].secondaryInfo = `(${bags.toLocaleString(undefined, { maximumFractionDigits: 2 })} Bags @ 50kg)`;
-      }
-      if (result[mat].unit === 'Ton') {
-        result[mat].quantity = Math.round(result[mat].quantity * 1000) / 1000;
-      }
+      result[mat].quantity = Math.round(result[mat].quantity * 1000) / 1000;
     });
 
     return result;
