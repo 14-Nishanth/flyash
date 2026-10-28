@@ -33,6 +33,11 @@ export const Production: React.FC = () => {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<JobWageEntry | null>(null);
+  const [historyDateFrom, setHistoryDateFrom] = useState('');
+  const [historyDateTo, setHistoryDateTo] = useState('');
+  const jobsByDate = [...jobs]
+    .filter((job) => (!historyDateFrom || job.date >= historyDateFrom) && (!historyDateTo || job.date <= historyDateTo))
+    .sort((a, b) => b.date.localeCompare(a.date) || String(b.created_at || '').localeCompare(String(a.created_at || '')));
 
   // Duplicate warning modal state
   const [duplicateModal, setDuplicateModal] = useState<{
@@ -224,7 +229,12 @@ export const Production: React.FC = () => {
           <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Hammer className="w-4 h-4 text-amber-600" /> Daily Production & Labor Records
           </h3>
-          <span className="text-xs text-slate-500 font-medium">Total: {jobs.length} logs</span>
+          <span className="text-xs text-slate-500 font-medium">Showing: {jobsByDate.length} / {jobs.length} logs</span>
+        </div>
+        <div className="px-4 py-3 flex flex-col sm:flex-row gap-3 sm:items-end border-b border-slate-100 dark:border-slate-800">
+          <div className="flex-1"><label className="block text-xs font-semibold mb-1">From date</label><input type="date" value={historyDateFrom} max={historyDateTo || undefined} onChange={(e) => setHistoryDateFrom(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-800" /></div>
+          <div className="flex-1"><label className="block text-xs font-semibold mb-1">To date</label><input type="date" value={historyDateTo} min={historyDateFrom || undefined} onChange={(e) => setHistoryDateTo(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-800" /></div>
+          <button type="button" onClick={() => { setHistoryDateFrom(''); setHistoryDateTo(''); }} className="px-4 py-2 rounded-lg border text-sm font-semibold">Show all dates</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
@@ -242,7 +252,7 @@ export const Production: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-              {jobs.map((job) => {
+              {jobsByDate.map((job) => {
                 const typeColor =
                   job.job_type === 'Only Loading'
                     ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800'
@@ -313,7 +323,7 @@ export const Production: React.FC = () => {
                   </tr>
                 );
               })}
-              {jobs.length === 0 && (
+              {jobsByDate.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     No production logs recorded yet
