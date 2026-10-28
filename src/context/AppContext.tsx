@@ -1453,35 +1453,53 @@ return true;
     return result;
   };
 
-  // Finished Goods Yard Stock
+  // Finished Goods Yard Stock. Normalize spelling/plural variants so production
+  // and dispatch entries for the same product share one stock balance.
   const getProductStock = (): { [prod: string]: { produced: number; dispatched: number; stock: number } } => {
-    const result: { [prod: string]: { produced: number; dispatched: number; stock: number } } = {};
+    const byKey: { [key: string]: { produced: number; dispatched: number; stock: number } } = {};
+    const displayNameByKey: { [key: string]: string } = {};
+    const productKey = (name: string | undefined) =>
+      String(name || '').trim().toLowerCase().replace(/\\s+/g, ' ').replace(/\\bbricks\\b/g, 'brick');
 
-    // Initial opening stock from product rates
+    const ensureProduct = (name: string | undefined) => {
+      const key = productKey(name);
+      if (!key) return '';
+      if (!displayNameByKey[key]) displayNameByKey[key] = String(name).trim().replace(/\\s+/g, ' ');
+      if (!byKey[key]) byKey[key] = { produced: 0, dispatched: 0, stock: 0 };
+      return key;
+    };
+
+    // Prefer the configured product-rate name for consistent labels.
     productRates.forEach((pr) => {
-      if (pr.opening_stock) {
-        result[pr.name] = { produced: pr.opening_stock, dispatched: 0, stock: pr.opening_stock };
+      const key = ensureProduct(pr.name);
+      if (key) {
+        displayNameByKey[key] = String(pr.name).trim().replace(/\\s+/g, ' ');
+        const opening = Number(pr.opening_stock) || 0;
+        byKey[key].produced += opening;
+        byKey[key].stock += opening;
       }
     });
 
-    jobs.forEach((j) => {
-      const prod = j.product_name;
-      if (!result[prod]) {
-        result[prod] = { produced: 0, dispatched: 0, stock: 0 };
-      }
-      result[prod].produced += j.quantity;
-      result[prod].stock += j.quantity;
+    jobs.forEach((job) => {
+      const key = ensureProduct(job.product_name);
+      if (!key) return;
+      const quantity = Number(job.quantity) || 0;
+      byKey[key].produced += quantity;
+      byKey[key].stock += quantity;
     });
 
-    outwards.forEach((o) => {
-      const prod = o.material_type;
-      if (!result[prod]) {
-        result[prod] = { produced: 0, dispatched: 0, stock: 0 };
-      }
-      result[prod].dispatched += o.quantity_mt;
-      result[prod].stock -= o.quantity_mt;
+    outwards.forEach((outward) => {
+      const key = ensureProduct(outward.material_type);
+      if (!key) return;
+      const quantity = Number(outward.quantity_mt) || 0;
+      byKey[key].dispatched += quantity;
+      byKey[key].stock -= quantity;
     });
 
+    const result: { [prod: string]: { produced: number; dispatched: number; stock: number } } = {};
+    Object.keys(byKey).forEach((key) => {
+      result[displayNameByKey[key] || key] = byKey[key];
+    });
     return result;
   };
 
