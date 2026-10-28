@@ -1470,8 +1470,6 @@ return true;
 
       if (isDustOrSand && unit === 'Units') {
         result[resultKey].secondaryInfo = `≈ ${(result[resultKey].quantity * 3.2).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes (1 Unit = 3.2 Tonnes)`;
-      } else if (isDustOrSand && unit === 'Pieces') {
-        result[resultKey].secondaryInfo = `≈ ${(result[resultKey].quantity * 3.2).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes (assuming 1 Piece = 1 Unit)`;
       } else if (unit === 'Kg') {
         result[resultKey].secondaryInfo = `≈ ${(result[resultKey].quantity / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes`;
       } else if (unit === 'Bags' && isCement) {
