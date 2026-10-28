@@ -41,6 +41,7 @@ export const Dashboard: React.FC = () => {
   } = useApp();
 
   const todayStr = new Date().toISOString().split('T')[0];
+  const latestOutwards = [...outwards].sort((a, b) => (b.date || '').localeCompare(a.date || '') || String(b.created_at || '').localeCompare(String(a.created_at || '')));
 
   // Today's Calculations
   const todayProduction = jobs
@@ -554,7 +555,7 @@ export const Dashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs font-mono">
-              {outwards.slice(0, 5).map((o) => (
+              {latestOutwards.slice(0, 5).map((o) => (
                 <tr key={o.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                   <td className="px-4 py-3 text-slate-500">{o.date}</td>
                   <td className="px-4 py-3 font-sans font-semibold text-slate-900 dark:text-white">
