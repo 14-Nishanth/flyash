@@ -188,7 +188,7 @@ export const Settings: React.FC = () => {
     }
 
     try {
-      const { error } = await supabase.from('parties').select('count', { count: 'exact', head: true });
+      const { error } = await supabase.from('app_records').select('id', { count: 'exact', head: true }).limit(1);
       if (error) {
         setDbStatus('error');
         setDbCheckMsg(`NO — Connection error: ${error.message}`);
