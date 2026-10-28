@@ -56,6 +56,8 @@ export const Parties: React.FC = () => {
   const [activeSection, setActiveSection] = useState<'parties' | 'received'>('parties');
   const [filterType, setFilterType] = useState<'all' | 'credit' | 'debit' | 'customer' | 'supplier'>('all');
   const [ledgerFilter, setLedgerFilter] = useState<'all' | 'credit' | 'debit' | 'payment'>('all');
+  const [receiptDateFrom, setReceiptDateFrom] = useState('');
+  const [receiptDateTo, setReceiptDateTo] = useState('');
 
   // Duplicate warning modal state
   const [duplicateModal, setDuplicateModal] = useState<{
@@ -476,6 +478,10 @@ export const Parties: React.FC = () => {
     return true;
   });
 
+  const receivedPaymentsByDate = [...payments]
+    .filter((p) => p.payment_type === 'received' && (!receiptDateFrom || p.date >= receiptDateFrom) && (!receiptDateTo || p.date <= receiptDateTo))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || String(b.created_at || '').localeCompare(String(a.created_at || '')));
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -824,6 +830,12 @@ export const Parties: React.FC = () => {
             <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800">
               <h3 className="font-bold text-slate-900 dark:text-white">Receipt History</h3>
             </div>
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-3 sm:items-end">
+              <div className="flex-1"><label className="block text-xs font-semibold mb-1">From date</label><input type="date" value={receiptDateFrom} max={receiptDateTo || undefined} onChange={(e) => setReceiptDateFrom(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-800" /></div>
+              <div className="flex-1"><label className="block text-xs font-semibold mb-1">To date</label><input type="date" value={receiptDateTo} min={receiptDateFrom || undefined} onChange={(e) => setReceiptDateTo(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-800" /></div>
+              <button type="button" onClick={() => { setReceiptDateFrom(''); setReceiptDateTo(''); }} className="px-4 py-2 rounded-lg border text-sm font-semibold">Show all dates</button>
+              <span className="text-xs text-slate-500">{receivedPaymentsByDate.length} receipts</span>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
                 <thead className="text-xs uppercase bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-semibold">
@@ -838,7 +850,7 @@ export const Parties: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                  {[...payments].filter((p) => p.payment_type === 'received').sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((payment) => {
+                  {receivedPaymentsByDate.map((payment) => {
                     const party = parties.find((p) => p.id === payment.party_id);
                     const balance = party ? calculatePartyBalance(party.id) : 0;
                     return (
