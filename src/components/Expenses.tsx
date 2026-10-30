@@ -63,6 +63,8 @@ export const Expenses: React.FC = () => {
     isOpen: boolean;
     data: any;
     details?: string;
+    isEdit?: boolean;
+    editId?: string;
   }>({
     isOpen: false,
     data: null,
@@ -377,13 +379,15 @@ export const Expenses: React.FC = () => {
       notes: notes.trim(),
     };
 
-    if (!editingExpense) {
-      const dup = checkDuplicate('expense', payload);
+    {
+      const dup = checkDuplicate('expense', payload, editingExpense?.id);
       if (dup.isDuplicate) {
         setDuplicateModal({
           isOpen: true,
           data: payload,
           details: dup.details,
+          isEdit: !!editingExpense,
+          editId: editingExpense?.id,
         });
         return;
       }
@@ -411,7 +415,8 @@ export const Expenses: React.FC = () => {
   };
 
   const handleConfirmDuplicate = async () => {
-    await addExpense(duplicateModal.data);
+    if (duplicateModal.isEdit && duplicateModal.editId) await updateExpense(duplicateModal.editId, duplicateModal.data);
+    else await addExpense(duplicateModal.data);
     setModalOpen(false);
     setDuplicateModal({ isOpen: false, data: null });
   };
