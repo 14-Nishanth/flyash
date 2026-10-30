@@ -155,7 +155,7 @@ export interface Expense {
   created_at: string;
 }
 
-export type UserRole = 'admin' | 'owner' | 'operator';
+export type UserRole = 'admin' | 'manager' | 'staff' | 'owner' | 'operator';
 
 export interface AppUser {
   id: string;
