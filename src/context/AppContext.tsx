@@ -1559,7 +1559,7 @@ return true;
 
     // Deduct production consumption from each job's saved recipe snapshot.
     // Older jobs without snapshots use the current shared recipe as a migration fallback.
-    const recipe = settings.manufacturing_recipe || DEFAULT_MANUFACTURING_RECIPE;
+    const recipe = getManufacturingRecipe(settings.manufacturing_recipe);
     const bricksPerBatch = Math.max(1, Number(recipe.bricksPerBatch) || DEFAULT_MANUFACTURING_RECIPE.bricksPerBatch);
     const kgPerDisplayUnit = (unit: string, materialName: string, purchaseUnitKg: number) => {
       if (unit === 'Kg') return 1;
