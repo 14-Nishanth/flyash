@@ -418,17 +418,17 @@ export const Expenses: React.FC = () => {
       await updateExpense(duplicateModal.editId, duplicateModal.data);
     } else {
       await addExpense(duplicateModal.data);
-      if (entryMode === 'material' && addToStock && partyId && quantity && parseFloat(quantity) > 0) {
+      if (entryMode === 'material' && addToStock && duplicateModal.data.party_id && Number(duplicateModal.data.quantity) > 0) {
         await addInward({
-          date,
-          party_id: partyId,
-          party_name: selectedParty?.name,
-          material_type: activeMaterial,
-          quantity_mt: parseFloat(quantity),
-          quantity_unit: unit,
-          rate: parseFloat(rate) || (Number(duplicateModal.data.amount) / parseFloat(quantity)),
+          date: duplicateModal.data.date,
+          party_id: duplicateModal.data.party_id,
+          party_name: duplicateModal.data.party_name || duplicateModal.data.paid_to,
+          material_type: duplicateModal.data.material_type,
+          quantity_mt: Number(duplicateModal.data.quantity),
+          quantity_unit: duplicateModal.data.unit,
+          rate: Number(duplicateModal.data.rate) || (Number(duplicateModal.data.amount) / Number(duplicateModal.data.quantity)),
           amount: Number(duplicateModal.data.amount) || 0,
-          vehicle_no: vehicleNo.trim() || undefined,
+          vehicle_no: duplicateModal.data.vehicle_no || undefined,
           notes: `Logged via Material Expense [${duplicateModal.data.title}]`,
         });
       }
