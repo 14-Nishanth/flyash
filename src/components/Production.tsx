@@ -13,7 +13,7 @@ import {
   Layers,
   ArrowRight,
 } from 'lucide-react';
-import { JobWageEntry } from '../types';
+import { JobWageEntry, DEFAULT_MANUFACTURING_RECIPE } from '../types';
 import { DuplicateWarningModal } from './DuplicateWarningModal';
 
 export const Production: React.FC = () => {
@@ -22,6 +22,7 @@ export const Production: React.FC = () => {
     employees,
     workerGroups,
     productRates,
+    settings,
     addJob,
     updateJob,
     deleteJob,
@@ -157,6 +158,12 @@ export const Production: React.FC = () => {
       wage_per_worker: wagePerWorker,
       worker_ids: selectedWorkers,
       notes,
+      material_consumption: (jobType === 'Only Production' || jobType === 'Production')
+        ? (settings.manufacturing_recipe || DEFAULT_MANUFACTURING_RECIPE).materials.map((material) => ({
+            material_name: material.name,
+            quantity_kg: (netQty / Math.max(1, Number((settings.manufacturing_recipe || DEFAULT_MANUFACTURING_RECIPE).bricksPerBatch) || DEFAULT_MANUFACTURING_RECIPE.bricksPerBatch)) * (Number(material.kgPerBatch) || 0),
+          }))
+        : [],
     };
 
     const dup = checkDuplicate('job', payload, editingJob?.id);
