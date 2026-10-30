@@ -43,6 +43,7 @@ export const Parties: React.FC = () => {
     updatePayment,
     deletePayment,
     calculatePartyBalance,
+    canEdit,
     canDelete,
     checkDuplicate,
   } = useApp();
@@ -227,7 +228,7 @@ export const Parties: React.FC = () => {
       return;
     }
 
-    await addPartyAdjustment({
+    const voucherData = {
       date: vDate,
       party_id: selectedParty.id,
       voucher_type: vType,
@@ -236,7 +237,10 @@ export const Parties: React.FC = () => {
       payment_mode: vMode,
       reference_no: vRef.trim(),
       notes: vNotes.trim(),
-    });
+    };
+    const voucherDuplicate = checkDuplicate('adjustment', voucherData);
+    if (voucherDuplicate.isDuplicate && !window.confirm(`${voucherDuplicate.details}\n\nSave this voucher anyway?`)) return;
+    await addPartyAdjustment(voucherData);
 
     setVoucherModalOpen(false);
     setVAmount('');
@@ -281,6 +285,8 @@ export const Parties: React.FC = () => {
       reference_no: payRef.trim(),
       notes: payNotes.trim(),
     };
+    const paymentDuplicate = checkDuplicate('payment', paymentData, editingPayment?.id);
+    if (paymentDuplicate.isDuplicate && !window.confirm(`${paymentDuplicate.details}\n\nSave this payment anyway?`)) return;
     if (editingPayment) {
       await updatePayment(editingPayment.id, paymentData);
     } else {
@@ -748,13 +754,15 @@ export const Parties: React.FC = () => {
                         >
                           <Share2 className="w-3.5 h-3.5" />
                         </button>
-                        <button
+                        {canEdit && (
+<button
                           onClick={() => openEditParty(party)}
                           className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition"
                           title="Edit Party Details"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+)}
                         {canDelete ? (
                           <button
                             onClick={() => handleDeleteParty(party.id)}
@@ -862,9 +870,11 @@ export const Parties: React.FC = () => {
                         <td className="px-4 py-3">{payment.reference_no || payment.notes || '-'}</td>
                         <td className="px-4 py-3 font-mono font-bold">₹{Math.max(0, balance).toLocaleString('en-IN')}</td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">
-                          <button type="button" onClick={() => openEditPayment(payment)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 text-xs font-bold" title="Edit this receipt">
+                          {canEdit && (
+<button type="button" onClick={() => openEditPayment(payment)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 text-xs font-bold" title="Edit this receipt">
                             <Edit2 className="w-3.5 h-3.5" /> Edit
                           </button>
+)}
                           {canDelete && <button type="button" onClick={() => handleDeletePayment(payment.id)} className="ml-1 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 text-xs font-bold" title="Delete this receipt">
                             <Trash2 className="w-3.5 h-3.5" /> Delete
                           </button>}
