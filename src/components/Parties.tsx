@@ -65,6 +65,8 @@ export const Parties: React.FC = () => {
     isOpen: boolean;
     data: any;
     details?: string;
+    isEdit?: boolean;
+    editId?: string;
   }>({
     isOpen: false,
     data: null,
@@ -185,13 +187,15 @@ export const Parties: React.FC = () => {
       credit_period_days: parseInt(pCreditDays) || undefined,
     };
 
-    if (!editingParty) {
-      const dup = checkDuplicate('party', payload);
+    {
+      const dup = checkDuplicate('party', payload, editingParty?.id);
       if (dup.isDuplicate) {
         setDuplicateModal({
           isOpen: true,
           data: payload,
           details: dup.details,
+          isEdit: !!editingParty,
+          editId: editingParty?.id,
         });
         return;
       }
@@ -203,8 +207,10 @@ export const Parties: React.FC = () => {
   };
 
   const handleConfirmDuplicateParty = async () => {
-    await addParty(duplicateModal.data);
+    if (duplicateModal.isEdit && duplicateModal.editId) await updateParty(duplicateModal.editId, duplicateModal.data);
+    else await addParty(duplicateModal.data);
     setAddModalOpen(false);
+    setEditingParty(null);
     setDuplicateModal({ isOpen: false, data: null });
   };
 
