@@ -1464,7 +1464,13 @@ return true;
       matchedInwardIds.add(match.id);
       return true;
     });
-    const paidAgainstInwardPurchases = materialPurchaseExpensesWithInward.reduce((sum, expense) => sum + (Number(expense.paid_amount) || 0), 0);
+    const paidAgainstInwardPurchases = materialPurchaseExpensesWithInward.reduce((sum, expense) => {
+      const explicitPaid = Number(expense.paid_amount);
+      const inferredPaid = expense.due_amount !== undefined
+        ? (Number(expense.amount) || 0) - (Number(expense.due_amount) || 0)
+        : expense.payment_status === 'paid' ? Number(expense.amount) || 0 : 0;
+      return sum + (Number.isFinite(explicitPaid) ? explicitPaid : inferredPaid);
+    }, 0);
 
     const partyPaidExpenses = expenses
       .filter((e) => e.party_id === partyId &&
