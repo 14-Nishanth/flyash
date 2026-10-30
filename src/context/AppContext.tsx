@@ -1384,7 +1384,7 @@ return true;
         const updatedInward: MaterialInward = {
           ...linkedInward,
           date: mergedExpense.date,
-          party_id: mergedExpense.party_id,
+          party_id: mergedExpense.party_id || linkedInward.party_id,
           party_name: party?.name || mergedExpense.party_name || linkedInward.party_name,
           material_type: mergedExpense.material_type,
           quantity_mt: Number(mergedExpense.quantity),
