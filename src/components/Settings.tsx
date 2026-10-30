@@ -163,7 +163,7 @@ export const Settings: React.FC = () => {
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newName, setNewName] = useState('');
-  const [newRole, setNewRole] = useState<UserRole>('operator');
+  const [newRole, setNewRole] = useState<UserRole>('staff');
   const [newPhone, setNewPhone] = useState('');
   const [userCreatedMsg, setUserCreatedMsg] = useState(false);
   const [userActionError, setUserActionError] = useState('');
@@ -173,7 +173,7 @@ export const Settings: React.FC = () => {
   const [editName, setEditName] = useState('');
   const [editUsername, setEditUsername] = useState('');
   const [editPassword, setEditPassword] = useState('');
-  const [editRole, setEditRole] = useState<UserRole>('operator');
+  const [editRole, setEditRole] = useState<UserRole>('staff');
   const [editPhone, setEditPhone] = useState('');
   const [editModalOpen, setEditModalOpen] = useState(false);
 
@@ -1185,8 +1185,7 @@ export const Settings: React.FC = () => {
         </div>
 
         <p className="text-xs text-slate-600 dark:text-slate-400">
-          Create and edit user accounts for plant staff and operators. Users with the <b>Data Entry Operator</b> role can add
-          and edit all materials, production, and accounts data, but <b>cannot delete</b> any records from the database.
+          Create and edit user accounts for plant staff and operators. <b>Staff</b> can create and view records. <b>Managers</b> can create and edit business records but cannot delete them or manage users. <b>Administrators</b> have full access.
         </p>
 
         {userActionError && (
@@ -1252,9 +1251,9 @@ export const Settings: React.FC = () => {
                   onChange={(e) => setNewRole(e.target.value as UserRole)}
                   className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="operator">Operator (Enter/Edit Data, No Delete)</option>
+                  <option value="staff">Staff (Create and View Only)</option>
+                  <option value="manager">Manager (Create and Edit, No Delete)</option>
                   <option value="admin">Administrator (Full Access)</option>
-                  <option value="owner">Plant Owner (Full Access)</option>
                 </select>
               </div>
             </div>
