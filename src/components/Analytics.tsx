@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Expense, MaterialInward } from '../types';
+import { Expense, MaterialInward, ManufacturingRecipe, RecipeMaterial, DEFAULT_MANUFACTURING_RECIPE } from '../types';
 import {
   TrendingUp,
   Calendar,
@@ -33,6 +33,9 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
     calculatePartyBalance,
     settings,
     setActiveTab,
+    canEdit,
+    lastSyncedTime,
+    updateManufacturingRecipe,
   } = useApp();
 
   const now = new Date();
