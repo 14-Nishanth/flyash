@@ -187,22 +187,19 @@ export const Parties: React.FC = () => {
       credit_period_days: parseInt(pCreditDays) || undefined,
     };
 
-    {
-      const dup = checkDuplicate('party', payload, editingParty?.id);
-      if (dup.isDuplicate) {
-        setDuplicateModal({
-          isOpen: true,
-          data: payload,
-          details: dup.details,
-          isEdit: !!editingParty,
-          editId: editingParty?.id,
-        });
-        return;
-      }
-      await addParty(payload);
-    } else {
-      await updateParty(editingParty.id, payload);
+    const dup = checkDuplicate('party', payload, editingParty?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({
+        isOpen: true,
+        data: payload,
+        details: dup.details,
+        isEdit: !!editingParty,
+        editId: editingParty?.id,
+      });
+      return;
     }
+    if (editingParty) await updateParty(editingParty.id, payload);
+    else await addParty(payload);
     setAddModalOpen(false);
   };
 
