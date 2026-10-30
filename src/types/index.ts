@@ -193,6 +193,36 @@ export interface ProductRateMaster {
   created_at: string;
 }
 
+export interface RecipeMaterial {
+  id: string;
+  name: string;
+  purchasePrice: number;
+  purchaseQuantity: number;
+  purchaseUnitKg: number;
+  kgPerBatch: number;
+}
+
+export interface ManufacturingRecipe {
+  bricksPerBatch: number;
+  sellingPricePerBrick: number;
+  laborPerBatch: number;
+  powerFuelPerBatch: number;
+  materials: RecipeMaterial[];
+}
+
+export const DEFAULT_MANUFACTURING_RECIPE: ManufacturingRecipe = {
+  bricksPerBatch: 5000,
+  sellingPricePerBrick: 5.5,
+  laborPerBatch: 3000,
+  powerFuelPerBatch: 1750,
+  materials: [
+    { id: 'ash', name: 'Fly ash', purchasePrice: 1000, purchaseQuantity: 1, purchaseUnitKg: 1000, kgPerBatch: 40 },
+    { id: 'cement', name: 'Cement', purchasePrice: 350, purchaseQuantity: 1, purchaseUnitKg: 50, kgPerBatch: 17 },
+    { id: 'dust', name: 'Dust', purchasePrice: 17000, purchaseQuantity: 1, purchaseUnitKg: 3200, kgPerBatch: 80 },
+    { id: 'cooldust', name: 'Cooldust', purchasePrice: 4500, purchaseQuantity: 1, purchaseUnitKg: 3200, kgPerBatch: 100 },
+  ],
+};
+
 export interface AlertSettings {
   supabase_url?: string;
   supabase_anon_key?: string;
@@ -231,6 +261,7 @@ export interface AlertSettings {
   max_alerts_per_day: number; // e.g. 5, 10, 20, 0 = unlimited
   daily_digest_enabled: boolean;
   daily_digest_time: string;
+  manufacturing_recipe?: ManufacturingRecipe;
 }
 
 
