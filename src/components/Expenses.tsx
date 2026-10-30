@@ -414,8 +414,25 @@ export const Expenses: React.FC = () => {
   };
 
   const handleConfirmDuplicate = async () => {
-    if (duplicateModal.isEdit && duplicateModal.editId) await updateExpense(duplicateModal.editId, duplicateModal.data);
-    else await addExpense(duplicateModal.data);
+    if (duplicateModal.isEdit && duplicateModal.editId) {
+      await updateExpense(duplicateModal.editId, duplicateModal.data);
+    } else {
+      await addExpense(duplicateModal.data);
+      if (entryMode === 'material' && addToStock && partyId && quantity && parseFloat(quantity) > 0) {
+        await addInward({
+          date,
+          party_id: partyId,
+          party_name: selectedParty?.name,
+          material_type: activeMaterial,
+          quantity_mt: parseFloat(quantity),
+          quantity_unit: unit,
+          rate: parseFloat(rate) || (Number(duplicateModal.data.amount) / parseFloat(quantity)),
+          amount: Number(duplicateModal.data.amount) || 0,
+          vehicle_no: vehicleNo.trim() || undefined,
+          notes: `Logged via Material Expense [${duplicateModal.data.title}]`,
+        });
+      }
+    }
     setModalOpen(false);
     setDuplicateModal({ isOpen: false, data: null });
   };
