@@ -13,7 +13,8 @@ import {
   Layers,
   ArrowRight,
 } from 'lucide-react';
-import { JobWageEntry, DEFAULT_MANUFACTURING_RECIPE } from '../types';
+import { JobWageEntry } from '../types';
+import { getManufacturingRecipe } from '../lib/manufacturingRecipe';
 import { DuplicateWarningModal } from './DuplicateWarningModal';
 
 export const Production: React.FC = () => {
@@ -139,6 +140,7 @@ export const Production: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const activeRecipe = getManufacturingRecipe(settings.manufacturing_recipe);
     const payload = {
       date,
       group_name: groupName,
@@ -159,9 +161,9 @@ export const Production: React.FC = () => {
       worker_ids: selectedWorkers,
       notes,
       material_consumption: (jobType === 'Only Production' || jobType === 'Production')
-        ? (settings.manufacturing_recipe || DEFAULT_MANUFACTURING_RECIPE).materials.map((material) => ({
+        ? activeRecipe.materials.map((material) => ({
             material_name: material.name,
-            quantity_kg: (netQty / Math.max(1, Number((settings.manufacturing_recipe || DEFAULT_MANUFACTURING_RECIPE).bricksPerBatch) || DEFAULT_MANUFACTURING_RECIPE.bricksPerBatch)) * (Number(material.kgPerBatch) || 0),
+            quantity_kg: (netQty / Math.max(1, Number(activeRecipe.bricksPerBatch) || 5000)) * (Number(material.kgPerBatch) || 0),
           }))
         : [],
     };
