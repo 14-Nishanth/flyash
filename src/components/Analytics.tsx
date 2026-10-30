@@ -177,39 +177,50 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
   }, [selectedMonth, outwards, inwards, jobs, expenses]);
 
   // Editable batch recipe and purchase-unit costs. Saved in this browser between visits.
-  type RecipeMaterial = { id: string; name: string; purchasePrice: number; purchaseQuantity: number; purchaseUnitKg: number; kgPerBatch: number };
-  type RecipeSettings = { bricksPerBatch: number; sellingPricePerBrick: number; laborPerBatch: number; powerFuelPerBatch: number; materials: RecipeMaterial[] };
-  const defaultRecipe: RecipeSettings = {
-    bricksPerBatch: 5000,
-    sellingPricePerBrick: 5.5,
-    laborPerBatch: 3000,
-    powerFuelPerBatch: 1750,
-    materials: [
-      { id: 'ash', name: 'Fly ash', purchasePrice: 1000, purchaseQuantity: 1, purchaseUnitKg: 1000, kgPerBatch: 40 },
-      { id: 'cement', name: 'Cement', purchasePrice: 350, purchaseQuantity: 1, purchaseUnitKg: 50, kgPerBatch: 17 },
-      { id: 'dust', name: 'Dust', purchasePrice: 17000, purchaseQuantity: 1, purchaseUnitKg: 3200, kgPerBatch: 80 },
-      { id: 'cooldust', name: 'Cooldust', purchasePrice: 4500, purchaseQuantity: 1, purchaseUnitKg: 3200, kgPerBatch: 100 },
-    ],
-  };
-  const [recipe, setRecipe] = useState<RecipeSettings>(() => {
+  const defaultRecipe: ManufacturingRecipe = DEFAULT_MANUFACTURING_RECIPE;
+  const [recipe, setRecipe] = useState<ManufacturingRecipe>(() => {
+    if (settings.manufacturing_recipe) return settings.manufacturing_recipe;
     try {
       const saved = localStorage.getItem('flyash-profit-margin-recipe-v1');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && Array.isArray(parsed.materials) && parsed.materials.length) return { ...defaultRecipe, ...parsed };
       }
-    } catch { /* use defaults if saved settings cannot be read */ }
+    } catch { /* use the shared default if browser storage is unavailable */ }
     return defaultRecipe;
   });
+
+  // Cloud settings are authoritative after the initial shared-data sync.
+  useEffect(() => {
+    if (settings.manufacturing_recipe) setRecipe(settings.manufacturing_recipe);
+  }, [settings.manufacturing_recipe]);
+
   useEffect(() => {
     try { localStorage.setItem('flyash-profit-margin-recipe-v1', JSON.stringify(recipe)); } catch { /* browser storage may be unavailable */ }
   }, [recipe]);
 
-  const updateRecipe = (patch: Partial<RecipeSettings>) => setRecipe((current) => ({ ...current, ...patch }));
-  const updateMaterial = (id: string, patch: Partial<RecipeMaterial>) => setRecipe((current) => ({
-    ...current,
-    materials: current.materials.map((material) => material.id === id ? { ...material, ...patch } : material),
-  }));
+  // Debounced cloud persistence avoids writing on every keystroke while keeping the
+  // same manufacturing recipe available to all authenticated devices.
+  useEffect(() => {
+    if (!canEdit || !lastSyncedTime) return;
+    if (JSON.stringify(settings.manufacturing_recipe || null) === JSON.stringify(recipe)) return;
+    const timer = window.setTimeout(() => {
+      updateManufacturingRecipe(recipe).catch((error) => console.error('Could not sync manufacturing recipe:', error));
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [recipe, settings.manufacturing_recipe, lastSyncedTime, canEdit]);
+
+  const updateRecipe = (patch: Partial<ManufacturingRecipe>) => {
+    if (!canEdit) return;
+    setRecipe((current) => ({ ...current, ...patch }));
+  };
+  const updateMaterial = (id: string, patch: Partial<RecipeMaterial>) => {
+    if (!canEdit) return;
+    setRecipe((current) => ({
+      ...current,
+      materials: current.materials.map((material) => material.id === id ? { ...material, ...patch } : material),
+    }));
+  };
   const materialCosts = recipe.materials.map((material) => {
     const purchasedKg = Math.max(0, material.purchaseQuantity * material.purchaseUnitKg);
     const costPerKg = purchasedKg > 0 ? material.purchasePrice / purchasedKg : 0;
