@@ -159,22 +159,19 @@ export const Production: React.FC = () => {
       notes,
     };
 
-    {
-      const dup = checkDuplicate('job', payload, editingJob?.id);
-      if (dup.isDuplicate) {
-        setDuplicateModal({
-          isOpen: true,
-          data: payload,
-          details: dup.details,
-          isEdit: !!editingJob,
-          editId: editingJob?.id,
-        });
-        return;
-      }
-      await addJob(payload);
-    } else {
-      await updateJob(editingJob.id, payload);
+    const dup = checkDuplicate('job', payload, editingJob?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({
+        isOpen: true,
+        data: payload,
+        details: dup.details,
+        isEdit: !!editingJob,
+        editId: editingJob?.id,
+      });
+      return;
     }
+    if (editingJob) await updateJob(editingJob.id, payload);
+    else await addJob(payload);
     setModalOpen(false);
   };
 
