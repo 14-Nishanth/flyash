@@ -1551,6 +1551,66 @@ return true;
       if (result[resultKey]) result[resultKey].quantity -= Number(item.quantity_mt) || 0;
     });
 
+    // Deduct material consumed by production. Recipe quantities are kg per batch;
+    // production volume is converted to batches using the recipe's bricks-per-batch.
+    const recipe = settings.manufacturing_recipe || DEFAULT_MANUFACTURING_RECIPE;
+    const bricksPerBatch = Math.max(1, Number(recipe.bricksPerBatch) || DEFAULT_MANUFACTURING_RECIPE.bricksPerBatch);
+    const totalProduced = jobs
+      .filter((job) => job.job_type === 'Only Production' || job.job_type === 'Production')
+      .reduce((sum, job) => sum + (Number(job.quantity) || 0), 0);
+    const kgPerDisplayUnit = (unit: string, materialName: string, purchaseUnitKg: number) => {
+      if (unit === 'Kg') return 1;
+      if (unit === 'Ton') return 1000;
+      if (unit === 'Bags') return materialName.toLowerCase().includes('cement') ? 50 : purchaseUnitKg;
+      if (unit === 'Units') return /dust|sand|aggregate|blue metal/i.test(materialName) ? 3200 : purchaseUnitKg;
+      return 1;
+    };
+
+    recipe.materials.forEach((material) => {
+      const kgToConsume = (totalProduced / bricksPerBatch) * (Number(material.kgPerBatch) || 0);
+      if (kgToConsume <= 0) return;
+      const canonical = canonicalMaterialName(material.name);
+      const canonicalLower = canonical.toLowerCase();
+      const matchesMaterial = (bucketName: string) => {
+        const lower = bucketName.toLowerCase();
+        if (lower === canonicalLower) return true;
+        if (canonicalLower === 'dust' && /dust|quarry dust|blue metal/.test(lower)) return true;
+        if (canonicalLower.includes('cool dust') && /cool ?dust|fine p sand/.test(lower)) return true;
+        return false;
+      };
+      const bucketKeys = Object.keys(result).filter((key) => {
+        const baseName = key.slice(0, key.lastIndexOf(' ('));
+        return matchesMaterial(baseName);
+      });
+      const purchaseUnitKg = Math.max(1, Number(material.purchaseUnitKg) || 1000);
+      const materialName = material.name || canonical;
+      const preferredUnit = purchaseUnitKg >= 3000 && /dust|sand|aggregate|blue metal/i.test(materialName)
+        ? 'Units'
+        : purchaseUnitKg >= 45 && purchaseUnitKg <= 55 && /cement/i.test(materialName)
+          ? 'Bags'
+          : purchaseUnitKg >= 900 && purchaseUnitKg <= 1100
+            ? 'Ton'
+            : 'Kg';
+      const unitPriority = [preferredUnit, 'Ton', 'Kg', 'Bags', 'Units'];
+      bucketKeys.sort((a, b) => unitPriority.indexOf(result[a].unit) - unitPriority.indexOf(result[b].unit));
+
+      let remainingKg = kgToConsume;
+      for (const key of bucketKeys) {
+        if (remainingKg <= 0) break;
+        const unitKg = kgPerDisplayUnit(result[key].unit, materialName, purchaseUnitKg);
+        const availableKg = Math.max(0, result[key].quantity) * unitKg;
+        const consumedKg = Math.min(remainingKg, availableKg);
+        result[key].quantity -= consumedKg / unitKg;
+        remainingKg -= consumedKg;
+      }
+      if (remainingKg > 0) {
+        const deficitKey = bucketKeys[0] || `${canonical} (${preferredUnit})`;
+        if (!result[deficitKey]) result[deficitKey] = { quantity: 0, unit: preferredUnit };
+        const unitKg = kgPerDisplayUnit(result[deficitKey].unit, materialName, purchaseUnitKg);
+        result[deficitKey].quantity -= remainingKg / unitKg;
+      }
+    });
+
     Object.keys(result).forEach((mat) => {
       const entry = result[mat];
       entry.quantity = Math.round(entry.quantity * 1000) / 1000;
