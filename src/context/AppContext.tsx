@@ -1386,69 +1386,54 @@ return true;
     const party = parties.find((p) => p.id === partyId);
     if (!party) return 0;
 
-    let opBal = party.opening_balance || 0;
-    // If opening balance was set as debit (I need to pay), make it negative; if credit (party needs to pay me), make it positive
-    if (party.opening_balance_type === 'debit') {
-      opBal = -opBal;
-    }
+    const opening = Number(party.opening_balance) || 0;
+    const opBal = party.opening_balance_type === 'debit' ? -opening : opening;
+    const totalOutward = outwards.filter((m) => m.party_id === partyId).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const totalInward = inwards.filter((m) => m.party_id === partyId).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const received = payments.filter((p) => p.party_id === partyId && p.payment_type === 'received' && p.mode !== 'adjustment').reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const paid = payments.filter((p) => p.party_id === partyId && p.payment_type === 'paid' && p.mode !== 'adjustment').reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const adjCredit = partyAdjustments.filter((a) => a.party_id === partyId && a.voucher_type === 'credit').reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+    const adjDebit = partyAdjustments.filter((a) => a.party_id === partyId && a.voucher_type === 'debit').reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
 
-    const totalOutward = outwards
-      .filter((m) => m.party_id === partyId)
-      .reduce((sum, item) => sum + item.amount, 0);
+    // Expense entries can mirror a material inward when "Add to stock" is selected.
+    // Match each expense to at most one inward so the purchase is not counted twice.
+    const matchedInwardIds = new Set<string>();
+    const materialPurchaseExpensesWithInward = expenses.filter((expense) => {
+      if (expense.party_id !== partyId || expense.expense_type !== 'material_purchase') return false;
+      const match = inwards.find((inward) =>
+        !matchedInwardIds.has(inward.id) &&
+        inward.party_id === partyId &&
+        inward.date === expense.date &&
+        String(inward.material_type || '').trim().toLowerCase() === String(expense.material_type || '').trim().toLowerCase() &&
+        Math.abs((Number(inward.amount) || 0) - (Number(expense.amount) || 0)) < 0.01
+      );
+      if (!match) return false;
+      matchedInwardIds.add(match.id);
+      return true;
+    });
+    const paidAgainstInwardPurchases = materialPurchaseExpensesWithInward.reduce((sum, expense) => sum + (Number(expense.paid_amount) || 0), 0);
 
-    const totalInward = inwards
-      .filter((m) => m.party_id === partyId)
-      .reduce((sum, item) => sum + item.amount, 0);
-
-    // Voucher records are stored separately in partyAdjustments and must not be counted twice.
-    const received = payments
-      .filter((p) => p.party_id === partyId && p.payment_type === 'received' && p.mode !== 'adjustment')
-      .reduce((sum, item) => sum + item.amount, 0);
-
-    const paid = payments
-      .filter((p) => p.party_id === partyId && p.payment_type === 'paid' && p.mode !== 'adjustment')
-      .reduce((sum, item) => sum + item.amount, 0);
-
-    const adjCredit = partyAdjustments
-      .filter((a) => a.party_id === partyId && a.voucher_type === 'credit')
-      .reduce((sum, a) => sum + (a.amount || 0), 0);
-
-    const adjDebit = partyAdjustments
-      .filter((a) => a.party_id === partyId && a.voucher_type === 'debit')
-      .reduce((sum, a) => sum + (a.amount || 0), 0);
-
-    // Supplier payments logged from Expenses (reduces what I need to pay to supplier)
     const partyPaidExpenses = expenses
-      .filter(
-        (e) =>
-          e.party_id === partyId &&
-          (e.expense_type === 'supplier_payment' ||
-            e.category === 'Supplier Due Payment' ||
-            e.category.includes('Supplier Due Payment') ||
-            e.category.includes('Outstanding Settlement'))
-      )
-      .reduce((sum, e) => sum + (e.amount || 0), 0);
+      .filter((e) => e.party_id === partyId &&
+        (e.expense_type === 'supplier_payment' ||
+          e.category === 'Supplier Due Payment' ||
+          e.category.includes('Supplier Due Payment') ||
+          e.category.includes('Outstanding Settlement')))
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-    // Unpaid material purchases or expenses (increases what I need to pay / Debit)
     const unpaidExpenses = expenses
-      .filter(
-        (e) =>
-          e.party_id === partyId &&
-          e.expense_type !== 'supplier_payment' &&
-          !e.category.includes('Supplier Due Payment') &&
-          !e.category.includes('Outstanding Settlement') &&
-          (e.payment_status === 'unpaid' || e.payment_status === 'partial' || e.is_paid === false || e.payment_mode === 'credit')
-      )
-      .reduce((sum, e) => {
-        if (e.payment_status === 'partial' && e.due_amount !== undefined) {
-          return sum + e.due_amount;
-        }
-        return sum + (e.amount || 0);
-      }, 0);
+      .filter((e) => e.party_id === partyId &&
+        e.expense_type !== 'supplier_payment' &&
+        !e.category.includes('Supplier Due Payment') &&
+        !e.category.includes('Outstanding Settlement') &&
+        !materialPurchaseExpensesWithInward.includes(e) &&
+        (e.payment_status === 'unpaid' || e.payment_status === 'partial' || e.is_paid === false || e.payment_mode === 'credit'))
+      .reduce((sum, e) => sum + (Number(e.due_amount ?? e.amount) || 0), 0);
 
-    // +Credit increases party's due to me (party needs to pay me)
-    // -Debit increases what I need to pay party
-    return opBal + totalOutward - totalInward - unpaidExpenses - received + (paid + partyPaidExpenses) + adjCredit - adjDebit;
+    // Positive = customer receivable; negative = supplier payable.
+    // Paid amounts on mirrored material purchases offset the inward liability exactly once.
+    return opBal + totalOutward - totalInward - unpaidExpenses - received +
+      paid + partyPaidExpenses + paidAgainstInwardPurchases + adjCredit - adjDebit;
   };
 
   // Raw-material stock is displayed in a consistent unit. Dust/sand purchased
@@ -1504,8 +1489,27 @@ return true;
       }
     });
 
+    // Explicit raw-material outward movements reduce the matching stock bucket.
+    // Entries in a different unit are kept separate rather than silently mixed.
+    outwards.forEach((item) => {
+      const mat = canonicalMaterialName(item.material_type);
+      const unit = normalizeUnit(item.quantity_unit || 'Ton');
+      const resultKey = `${mat} (${unit})`;
+      if (result[resultKey]) result[resultKey].quantity -= Number(item.quantity_mt) || 0;
+    });
+
     Object.keys(result).forEach((mat) => {
-      result[mat].quantity = Math.round(result[mat].quantity * 1000) / 1000;
+      const entry = result[mat];
+      entry.quantity = Math.round(entry.quantity * 1000) / 1000;
+      const isCement = mat.toLowerCase().includes('cement');
+      const isDustOrSand = /dust|sand|aggregate|blue metal/.test(mat.toLowerCase());
+      if (isDustOrSand && entry.unit === 'Units') {
+        entry.secondaryInfo = `≈ ${(entry.quantity * 3.2).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes (1 Unit = 3.2 Tonnes)`;
+      } else if (entry.unit === 'Kg') {
+        entry.secondaryInfo = `≈ ${(entry.quantity / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes`;
+      } else if (entry.unit === 'Bags' && isCement) {
+        entry.secondaryInfo = `≈ ${(entry.quantity * 0.05).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes (50 kg/bag)`;
+      }
     });
 
     return result;
@@ -1533,12 +1537,14 @@ return true;
       if (key) {
         displayNameByKey[key] = String(pr.name).trim().replace(/\\s+/g, ' ');
         const opening = Number(pr.opening_stock) || 0;
-        byKey[key].produced += opening;
+        // Opening stock is available stock, not production made during the report period.
         byKey[key].stock += opening;
       }
     });
 
     jobs.forEach((job) => {
+      // Gang work and loading/unloading wages are not finished-goods production.
+      if (job.job_type !== 'Only Production' && job.job_type !== 'Production') return;
       const key = ensureProduct(job.product_name);
       if (!key) return;
       const quantity = Number(job.quantity) || 0;
