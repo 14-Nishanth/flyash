@@ -18,6 +18,7 @@ import {
   DEFAULT_MANUFACTURING_RECIPE,
 } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
+import { getManufacturingRecipe } from '../lib/manufacturingRecipe';
 import { CLOUD_COLLECTIONS, CloudCollection, getCloudRole, hasCloudAccess, readCloudRecords, sanitizeCloudRecord, saveCloudRecord, softDeleteCloudRecord } from '../lib/cloudRecords';
 import { trackFailedLoginAttempt, resetFailedLoginAttempts } from '../lib/notificationService';
 
