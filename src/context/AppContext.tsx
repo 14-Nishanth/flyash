@@ -14,6 +14,8 @@ import {
   UserRole,
   WorkerGroup,
   ProductRateMaster,
+  ManufacturingRecipe,
+  DEFAULT_MANUFACTURING_RECIPE,
 } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 import { CLOUD_COLLECTIONS, CloudCollection, getCloudRole, hasCloudAccess, readCloudRecords, sanitizeCloudRecord, saveCloudRecord, softDeleteCloudRecord } from '../lib/cloudRecords';
@@ -100,6 +102,7 @@ interface AppContextType {
   deleteProductRate: (id: string) => Promise<boolean>;
   // Utilities
   updateSettings: (newSettings: AlertSettings) => void;
+  updateManufacturingRecipe: (recipe: ManufacturingRecipe) => Promise<void>;
   calculatePartyBalance: (partyId: string) => number;
   getRawMaterialStock: () => { [mat: string]: { quantity: number; unit: string; secondaryInfo?: string } };
   getProductStock: () => { [prod: string]: { produced: number; dispatched: number; stock: number } };
@@ -1418,6 +1421,13 @@ return true;
     return true;
   };
 
+  const updateManufacturingRecipe = async (recipe: ManufacturingRecipe) => {
+    assertCanEdit('manufacturing recipe');
+    const nextSettings = { ...settings, manufacturing_recipe: recipe };
+    setSettings(nextSettings);
+    await persistRecord('settings', { ...nextSettings, id: 'global' });
+  };
+
   const updateSettings = async (newSettings: AlertSettings) => {
     if (!isAdmin) throw new Error('Access denied: only Admin can change company settings.');
     setSettings(newSettings);
@@ -1673,6 +1683,7 @@ return true;
         updateProductRate,
         deleteProductRate,
         updateSettings,
+        updateManufacturingRecipe,
         calculatePartyBalance,
         getRawMaterialStock,
         getProductStock,
