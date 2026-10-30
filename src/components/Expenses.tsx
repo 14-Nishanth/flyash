@@ -39,6 +39,7 @@ export const Expenses: React.FC = () => {
     updateExpense, 
     deleteExpense, 
     addInward,
+    canEdit,
     canDelete, 
     checkDuplicate, 
     calculatePartyBalance 
@@ -827,13 +828,15 @@ export const Expenses: React.FC = () => {
                     {/* Actions */}
                     <td className="px-4 py-3.5 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
+                        {canEdit && (
+<button
                           onClick={() => openEditModal(exp)}
                           className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition"
                           title="Edit expense"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+)}
                         {canDelete ? (
                           <button
                             onClick={() => handleDelete(exp.id)}
