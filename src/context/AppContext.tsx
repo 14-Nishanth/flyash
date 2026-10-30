@@ -1351,6 +1351,17 @@ return true;
     await persistRecord('expenses', newExpense as unknown as Record<string, unknown>);
 };
 
+  const findLinkedMaterialInward = (expense?: Expense) => {
+    if (!expense || expense.expense_type !== 'material_purchase') return undefined;
+    return inwards.find((inward) =>
+      inward.date === expense.date &&
+      inward.party_id === expense.party_id &&
+      String(inward.material_type || '').trim().toLowerCase() === String(expense.material_type || '').trim().toLowerCase() &&
+      Math.abs((Number(inward.amount) || 0) - (Number(expense.amount) || 0)) < 0.01 &&
+      String(inward.notes || '').startsWith('Logged via Material Expense')
+    );
+  };
+
   const updateExpense = async (id: string, updated: Partial<Expense>) => {
     assertCanEdit();
     if (updated.party_id) {
@@ -1360,19 +1371,51 @@ return true;
         if (!updated.paid_to) updated.paid_to = party.name;
       }
     }
-    const mergedExpense = { ...(expenses.find((e) => e.id === id) || {}), ...updated, id };
-    setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
+    const existingExpense = expenses.find((e) => e.id === id);
+    const mergedExpense = { ...(existingExpense || {}), ...updated, id } as Expense;
+    const linkedInward = findLinkedMaterialInward(existingExpense);
+    setExpenses((prev) => prev.map((e) => (e.id === id ? mergedExpense : e)));
     await persistRecord('expenses', mergedExpense as unknown as Record<string, unknown>);
-};
+
+    // Keep the stock entry created from this expense in step with edits and deletions.
+    if (linkedInward) {
+      if (mergedExpense.expense_type === 'material_purchase' && mergedExpense.material_type && Number(mergedExpense.quantity) > 0) {
+        const party = parties.find((p) => p.id === mergedExpense.party_id);
+        const updatedInward: MaterialInward = {
+          ...linkedInward,
+          date: mergedExpense.date,
+          party_id: mergedExpense.party_id,
+          party_name: party?.name || mergedExpense.party_name || linkedInward.party_name,
+          material_type: mergedExpense.material_type,
+          quantity_mt: Number(mergedExpense.quantity),
+          quantity_unit: mergedExpense.unit || linkedInward.quantity_unit,
+          rate: Number(mergedExpense.rate) || Number(mergedExpense.amount) / Number(mergedExpense.quantity),
+          amount: Number(mergedExpense.amount) || 0,
+          notes: `Logged via Material Expense [${mergedExpense.title}]`,
+        };
+        setInwards((prev) => prev.map((item) => item.id === linkedInward.id ? updatedInward : item));
+        await persistRecord('inwards', updatedInward as unknown as Record<string, unknown>);
+      } else {
+        setInwards((prev) => prev.filter((item) => item.id !== linkedInward.id));
+        await removeCloudRecord('inwards', linkedInward.id);
+      }
+    }
+  };
 
   const deleteExpense = async (id: string): Promise<boolean> => {
     if (!canDelete) {
       alert('Access Denied: Only Administrator or Owner can delete expenses.');
       return false;
     }
+    const existingExpense = expenses.find((e) => e.id === id);
+    const linkedInward = findLinkedMaterialInward(existingExpense);
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     await removeCloudRecord('expenses', id);
-return true;
+    if (linkedInward) {
+      setInwards((prev) => prev.filter((item) => item.id !== linkedInward.id));
+      await removeCloudRecord('inwards', linkedInward.id);
+    }
+    return true;
   };
 
   const updateSettings = async (newSettings: AlertSettings) => {
