@@ -201,16 +201,13 @@ export const Employees: React.FC = () => {
       is_active: true,
     };
 
-    {
-      const dup = checkDuplicate('employee', payload, editingEmp?.id);
-      if (dup.isDuplicate) {
-        setDuplicateModal({ isOpen: true, type: 'employee', data: payload, details: dup.details, isEdit: !!editingEmp, editId: editingEmp?.id });
-        return;
-      }
-      await addEmployee(payload);
-    } else {
-      await updateEmployee(editingEmp.id, payload);
+    const dup = checkDuplicate('employee', payload, editingEmp?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({ isOpen: true, type: 'employee', data: payload, details: dup.details, isEdit: !!editingEmp, editId: editingEmp?.id });
+      return;
     }
+    if (editingEmp) await updateEmployee(editingEmp.id, payload);
+    else await addEmployee(payload);
     setEmpModalOpen(false);
   };
 
@@ -263,16 +260,13 @@ export const Employees: React.FC = () => {
       member_shares: grpShares,
     };
 
-    {
-      const dup = checkDuplicate('group', payload, editingGroup?.id);
-      if (dup.isDuplicate) {
-        setDuplicateModal({ isOpen: true, type: 'group', data: payload, details: dup.details, isEdit: !!editingGroup, editId: editingGroup?.id });
-        return;
-      }
-      await addGroup(payload);
-    } else {
-      await updateGroup(editingGroup.id, payload);
+    const dup = checkDuplicate('group', payload, editingGroup?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({ isOpen: true, type: 'group', data: payload, details: dup.details, isEdit: !!editingGroup, editId: editingGroup?.id });
+      return;
     }
+    if (editingGroup) await updateGroup(editingGroup.id, payload);
+    else await addGroup(payload);
     setGroupModalOpen(false);
   };
 
@@ -335,16 +329,13 @@ export const Employees: React.FC = () => {
       notes: prodNotes.trim(),
     };
 
-    {
-      const dup = checkDuplicate('product_rate', payload, editingRate?.id);
-      if (dup.isDuplicate) {
-        setDuplicateModal({ isOpen: true, type: 'product_rate', data: payload, details: dup.details, isEdit: !!editingRate, editId: editingRate?.id });
-        return;
-      }
-      await addProductRate(payload);
-    } else {
-      await updateProductRate(editingRate.id, payload);
+    const dup = checkDuplicate('product_rate', payload, editingRate?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({ isOpen: true, type: 'product_rate', data: payload, details: dup.details, isEdit: !!editingRate, editId: editingRate?.id });
+      return;
     }
+    if (editingRate) await updateProductRate(editingRate.id, payload);
+    else await addProductRate(payload);
     setRateModalOpen(false);
   };
 
