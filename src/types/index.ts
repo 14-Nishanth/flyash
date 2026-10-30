@@ -116,6 +116,7 @@ export interface JobWageEntry {
   worker_ids?: string[];
   vehicle_no?: string;
   notes?: string;
+  material_consumption?: { material_name: string; quantity_kg: number }[];
   created_at: string;
 }
 
