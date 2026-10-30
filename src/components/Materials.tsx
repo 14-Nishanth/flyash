@@ -15,6 +15,7 @@ export const Materials: React.FC = () => {
     addOutward,
     updateOutward,
     deleteOutward,
+    canEdit,
     canDelete,
     checkDuplicate,
   } = useApp();
@@ -308,13 +309,15 @@ export const Materials: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      <button
+                      {canEdit && (
+<button
                         onClick={() => openInwardEdit(item)}
                         className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition"
                         title="Edit entry"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
+)}
                       {canDelete ? (
                         <button
                           onClick={() => handleDeleteInward(item.id)}
@@ -395,13 +398,15 @@ export const Materials: React.FC = () => {
                       >
                         <Share2 className="w-3.5 h-3.5" />
                       </button>
-                      <button
+                      {canEdit && (
+<button
                         onClick={() => openOutwardEdit(item)}
                         className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition"
                         title="Edit entry"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
+)}
                       {canDelete ? (
                         <button
                           onClick={() => handleDeleteOutward(item.id)}
