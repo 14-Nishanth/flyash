@@ -32,6 +32,7 @@ interface AppContextType {
   toggleTheme: () => void;
   currentUser: UserSession | null;
   canDelete: boolean;
+  canEdit: boolean;
   canManageUsers: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
@@ -104,7 +105,7 @@ interface AppContextType {
   getProductStock: () => { [prod: string]: { produced: number; dispatched: number; stock: number } };
   calculateGroupWageDistribution: (groupId: string, totalWageAmount: number, overrideWorkerIds?: string[]) => { workerId: string; wage: number }[];
   // Duplicate check
-  checkDuplicate: (type: 'party' | 'inward' | 'outward' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate', data: any, excludeId?: string) => { isDuplicate: boolean; details?: string };
+  checkDuplicate: (type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate', data: any, excludeId?: string) => { isDuplicate: boolean; details?: string };
   // Multi-Device Cloud Synchronization
   syncWithCloud: () => Promise<boolean>;
   isSyncing: boolean;
@@ -521,8 +522,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   // Role permissions: Only Admin or Owner can delete data or manage users
-  const canDelete = currentUser?.role === 'admin' || currentUser?.role === 'owner';
-  const canManageUsers = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const canDelete = isAdmin;
+  const canEdit = isAdmin || currentUser?.role === 'manager';
+  const canManageUsers = isAdmin;
+  const assertCanEdit = (label = 'business records') => {
+    if (!canEdit) throw new Error(`Access denied: only Admin or Manager can edit ${label}.`);
+  };
 
   // Shared data requires a real Supabase Auth identity; browser-only demo credentials cannot sync securely.
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
@@ -813,7 +819,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Duplicate Check Helper
   const checkDuplicate = (
-    type: 'party' | 'inward' | 'outward' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate',
+    type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate',
     data: any,
     excludeId?: string
   ): { isDuplicate: boolean; details?: string } => {
@@ -936,6 +942,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    if (type === 'payment') {
+      const match = payments.find((p) => p.id !== excludeId && p.date === data.date && p.party_id === data.party_id && p.payment_type === data.payment_type && Number(p.amount) === Number(data.amount) && p.mode === data.mode);
+      if (match) return { isDuplicate: true, details: `Payment of ₹${match.amount} (${match.payment_type}) for ${match.party_name || 'this party'} on ${match.date} already exists.` };
+    }
+    if (type === 'adjustment') {
+      const match = partyAdjustments.find((a) => a.id !== excludeId && a.date === data.date && a.party_id === data.party_id && a.voucher_type === data.voucher_type && a.category === data.category && Number(a.amount) === Number(data.amount));
+      if (match) return { isDuplicate: true, details: `${match.voucher_type} voucher of ₹${match.amount} for ${match.party_name || 'this party'} on ${match.date} already exists.` };
+    }
+
     return { isDuplicate: false };
   };
 
@@ -1016,6 +1031,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateGroup = async (id: string, updated: Partial<WorkerGroup>) => {
+    assertCanEdit();
     const mergedGroup = { ...(workerGroups.find((g) => g.id === id) || {}), ...updated, id };
     setWorkerGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...updated } : g)));
     await persistRecord('workerGroups', mergedGroup as unknown as Record<string, unknown>);
@@ -1043,6 +1059,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateProductRate = async (id: string, updated: Partial<ProductRateMaster>) => {
+    assertCanEdit();
     const mergedRate = { ...(productRates.find((p) => p.id === id) || {}), ...updated, id };
     setProductRates((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
     await persistRecord('productRates', mergedRate as unknown as Record<string, unknown>);
@@ -1070,6 +1087,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
   const updateParty = async (id: string, updated: Partial<Party>) => {
+    assertCanEdit();
     const mergedParty = { ...(parties.find((p) => p.id === id) || {}), ...updated, id };
     setParties((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
     await persistRecord('parties', mergedParty as unknown as Record<string, unknown>);
@@ -1099,6 +1117,7 @@ await persistRecord('inwards', newInward as unknown as Record<string, unknown>);
   };
 
   const updateInward = async (id: string, updated: Partial<MaterialInward>) => {
+    assertCanEdit();
     if (updated.party_id) {
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
@@ -1132,6 +1151,7 @@ await persistRecord('outwards', newOutward as unknown as Record<string, unknown>
   };
 
   const updateOutward = async (id: string, updated: Partial<MaterialOutward>) => {
+    assertCanEdit();
     if (updated.party_id) {
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
@@ -1165,6 +1185,7 @@ return true;
 };
 
   const updatePayment = async (id: string, updated: Partial<Payment>) => {
+    assertCanEdit();
     if (updated.party_id) {
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
@@ -1198,6 +1219,7 @@ return true;
 };
 
   const updatePartyAdjustment = async (id: string, updated: Partial<PartyAdjustment>) => {
+    assertCanEdit();
     if (updated.party_id) {
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
@@ -1229,6 +1251,7 @@ return true;
 };
 
   const updateJob = async (id: string, updated: Partial<JobWageEntry>) => {
+    assertCanEdit();
     const mergedJob = { ...(jobs.find((j) => j.id === id) || {}), ...updated, id };
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...updated } : j)));
     await persistRecord('jobs', mergedJob as unknown as Record<string, unknown>);
@@ -1255,6 +1278,7 @@ return true;
 };
 
   const updateEmployee = async (id: string, updated: Partial<Employee>) => {
+    assertCanEdit();
     const mergedEmployee = { ...(employees.find((e) => e.id === id) || {}), ...updated, id };
     setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
     await persistRecord('employees', mergedEmployee as unknown as Record<string, unknown>);
@@ -1272,6 +1296,7 @@ return true;
 
   // --- ATTENDANCE CRUD ---
   const saveAttendance = async (date: string, records: { employee_id: string; status: any; notes?: string }[]) => {
+    assertCanEdit('attendance');
     const newRecords: AttendanceRecord[] = records.map((r) => {
       const emp = employees.find((e) => e.id === r.employee_id);
       return {
@@ -1327,6 +1352,7 @@ return true;
 };
 
   const updateExpense = async (id: string, updated: Partial<Expense>) => {
+    assertCanEdit();
     if (updated.party_id) {
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) {
@@ -1350,6 +1376,7 @@ return true;
   };
 
   const updateSettings = async (newSettings: AlertSettings) => {
+    if (!isAdmin) throw new Error('Access denied: only Admin can change company settings.');
     setSettings(newSettings);
     await persistRecord('settings', { ...newSettings, id: 'global' });
   };
@@ -1541,6 +1568,7 @@ return true;
         toggleTheme,
         currentUser,
         canDelete,
+        canEdit,
         canManageUsers,
         login,
         logout,
