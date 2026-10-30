@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { Expense, MaterialInward } from '../types';
 import {
   TrendingUp,
   Calendar,
