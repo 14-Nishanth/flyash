@@ -25,6 +25,7 @@ export const Production: React.FC = () => {
     addJob,
     updateJob,
     deleteJob,
+    canEdit,
     canDelete,
     checkDuplicate,
     calculateGroupWageDistribution,
@@ -298,13 +299,15 @@ export const Production: React.FC = () => {
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
+                        {canEdit && (
+<button
                           onClick={() => openEditModal(job)}
                           className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition"
                           title="Edit production log"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+)}
                         {canDelete ? (
                           <button
                             onClick={() => handleDelete(job.id)}
