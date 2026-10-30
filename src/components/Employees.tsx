@@ -134,6 +134,8 @@ export const Employees: React.FC = () => {
     type: 'employee' | 'group' | 'product_rate';
     data: any;
     details?: string;
+    isEdit?: boolean;
+    editId?: string;
   }>({
     isOpen: false,
     type: 'employee',
@@ -199,10 +201,10 @@ export const Employees: React.FC = () => {
       is_active: true,
     };
 
-    if (!editingEmp) {
-      const dup = checkDuplicate('employee', payload);
+    {
+      const dup = checkDuplicate('employee', payload, editingEmp?.id);
       if (dup.isDuplicate) {
-        setDuplicateModal({ isOpen: true, type: 'employee', data: payload, details: dup.details });
+        setDuplicateModal({ isOpen: true, type: 'employee', data: payload, details: dup.details, isEdit: !!editingEmp, editId: editingEmp?.id });
         return;
       }
       await addEmployee(payload);
@@ -261,10 +263,10 @@ export const Employees: React.FC = () => {
       member_shares: grpShares,
     };
 
-    if (!editingGroup) {
-      const dup = checkDuplicate('group', payload);
+    {
+      const dup = checkDuplicate('group', payload, editingGroup?.id);
       if (dup.isDuplicate) {
-        setDuplicateModal({ isOpen: true, type: 'group', data: payload, details: dup.details });
+        setDuplicateModal({ isOpen: true, type: 'group', data: payload, details: dup.details, isEdit: !!editingGroup, editId: editingGroup?.id });
         return;
       }
       await addGroup(payload);
@@ -333,10 +335,10 @@ export const Employees: React.FC = () => {
       notes: prodNotes.trim(),
     };
 
-    if (!editingRate) {
-      const dup = checkDuplicate('product_rate', payload);
+    {
+      const dup = checkDuplicate('product_rate', payload, editingRate?.id);
       if (dup.isDuplicate) {
-        setDuplicateModal({ isOpen: true, type: 'product_rate', data: payload, details: dup.details });
+        setDuplicateModal({ isOpen: true, type: 'product_rate', data: payload, details: dup.details, isEdit: !!editingRate, editId: editingRate?.id });
         return;
       }
       await addProductRate(payload);
@@ -357,10 +359,16 @@ export const Employees: React.FC = () => {
   };
 
   const handleConfirmDuplicate = async () => {
-    if (duplicateModal.type === 'employee') await addEmployee(duplicateModal.data);
-    else if (duplicateModal.type === 'group') await addGroup(duplicateModal.data);
-    else if (duplicateModal.type === 'product_rate') await addProductRate(duplicateModal.data);
-
+    if (duplicateModal.type === 'employee') {
+      if (duplicateModal.isEdit && duplicateModal.editId) await updateEmployee(duplicateModal.editId, duplicateModal.data);
+      else await addEmployee(duplicateModal.data);
+    } else if (duplicateModal.type === 'group') {
+      if (duplicateModal.isEdit && duplicateModal.editId) await updateGroup(duplicateModal.editId, duplicateModal.data);
+      else await addGroup(duplicateModal.data);
+    } else if (duplicateModal.type === 'product_rate') {
+      if (duplicateModal.isEdit && duplicateModal.editId) await updateProductRate(duplicateModal.editId, duplicateModal.data);
+      else await addProductRate(duplicateModal.data);
+    }
     setEmpModalOpen(false);
     setGroupModalOpen(false);
     setRateModalOpen(false);
