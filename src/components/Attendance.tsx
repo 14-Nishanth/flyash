@@ -13,6 +13,7 @@ export const Attendance: React.FC = () => {
     addEmployee,
     updateEmployee,
     deleteEmployee,
+    canEdit,
     canDelete,
     checkDuplicate,
   } = useApp();
@@ -230,13 +231,15 @@ export const Attendance: React.FC = () => {
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
+                        {canEdit && (
+<button
                           onClick={() => openEditEmp(emp)}
                           className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 rounded-lg transition"
                           title="Edit worker"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+)}
                         {canDelete ? (
                           <button
                             onClick={() => handleDeleteEmp(emp.id)}
