@@ -379,20 +379,21 @@ export const Expenses: React.FC = () => {
       notes: notes.trim(),
     };
 
-    {
-      const dup = checkDuplicate('expense', payload, editingExpense?.id);
-      if (dup.isDuplicate) {
-        setDuplicateModal({
-          isOpen: true,
-          data: payload,
-          details: dup.details,
-          isEdit: !!editingExpense,
-          editId: editingExpense?.id,
-        });
-        return;
-      }
+    const dup = checkDuplicate('expense', payload, editingExpense?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({
+        isOpen: true,
+        data: payload,
+        details: dup.details,
+        isEdit: !!editingExpense,
+        editId: editingExpense?.id,
+      });
+      return;
+    }
+    if (editingExpense) {
+      await updateExpense(editingExpense.id, payload);
+    } else {
       await addExpense(payload);
-
       // Optionally record in material inward stock
       if (entryMode === 'material' && addToStock && partyId && quantity && parseFloat(quantity) > 0) {
         await addInward({
@@ -408,8 +409,6 @@ export const Expenses: React.FC = () => {
           notes: `Logged via Material Expense [${computedTitle}]`,
         });
       }
-    } else {
-      await updateExpense(editingExpense.id, payload);
     }
     setModalOpen(false);
   };
