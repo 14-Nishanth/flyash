@@ -27,6 +27,8 @@ export const Attendance: React.FC = () => {
     isOpen: boolean;
     data: any;
     details?: string;
+    isEdit?: boolean;
+    editId?: string;
   }>({
     isOpen: false,
     data: null,
@@ -98,13 +100,15 @@ export const Attendance: React.FC = () => {
       is_active: true,
     };
 
-    if (!editingEmp) {
-      const dup = checkDuplicate('employee', payload);
+    {
+      const dup = checkDuplicate('employee', payload, editingEmp?.id);
       if (dup.isDuplicate) {
         setDuplicateModal({
           isOpen: true,
           data: payload,
           details: dup.details,
+          isEdit: !!editingEmp,
+          editId: editingEmp?.id,
         });
         return;
       }
@@ -116,8 +120,10 @@ export const Attendance: React.FC = () => {
   };
 
   const handleConfirmDuplicateEmp = async () => {
-    await addEmployee(duplicateModal.data);
+    if (duplicateModal.isEdit && duplicateModal.editId) await updateEmployee(duplicateModal.editId, duplicateModal.data);
+    else await addEmployee(duplicateModal.data);
     setAddEmpModal(false);
+    setEditingEmp(null);
     setDuplicateModal({ isOpen: false, data: null });
   };
 
