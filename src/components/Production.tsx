@@ -13,7 +13,7 @@ import {
   Layers,
   ArrowRight,
 } from 'lucide-react';
-import { JobWageEntry } from '../types';
+import { JobWageEntry, DEFAULT_MANUFACTURING_RECIPE } from '../types';
 import { DuplicateWarningModal } from './DuplicateWarningModal';
 
 export const Production: React.FC = () => {
@@ -22,9 +22,11 @@ export const Production: React.FC = () => {
     employees,
     workerGroups,
     productRates,
+    settings,
     addJob,
     updateJob,
     deleteJob,
+    canEdit,
     canDelete,
     checkDuplicate,
     calculateGroupWageDistribution,
@@ -44,6 +46,8 @@ export const Production: React.FC = () => {
     isOpen: boolean;
     data: any;
     details?: string;
+    isEdit?: boolean;
+    editId?: string;
   }>({
     isOpen: false,
     data: null,
@@ -154,27 +158,33 @@ export const Production: React.FC = () => {
       wage_per_worker: wagePerWorker,
       worker_ids: selectedWorkers,
       notes,
+      material_consumption: (jobType === 'Only Production' || jobType === 'Production')
+        ? (settings.manufacturing_recipe || DEFAULT_MANUFACTURING_RECIPE).materials.map((material) => ({
+            material_name: material.name,
+            quantity_kg: (netQty / Math.max(1, Number((settings.manufacturing_recipe || DEFAULT_MANUFACTURING_RECIPE).bricksPerBatch) || DEFAULT_MANUFACTURING_RECIPE.bricksPerBatch)) * (Number(material.kgPerBatch) || 0),
+          }))
+        : [],
     };
 
-    if (!editingJob) {
-      const dup = checkDuplicate('job', payload);
-      if (dup.isDuplicate) {
-        setDuplicateModal({
-          isOpen: true,
-          data: payload,
-          details: dup.details,
-        });
-        return;
-      }
-      await addJob(payload);
-    } else {
-      await updateJob(editingJob.id, payload);
+    const dup = checkDuplicate('job', payload, editingJob?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({
+        isOpen: true,
+        data: payload,
+        details: dup.details,
+        isEdit: !!editingJob,
+        editId: editingJob?.id,
+      });
+      return;
     }
+    if (editingJob) await updateJob(editingJob.id, payload);
+    else await addJob(payload);
     setModalOpen(false);
   };
 
   const handleConfirmDuplicate = async () => {
-    await addJob(duplicateModal.data);
+    if (duplicateModal.isEdit && duplicateModal.editId) await updateJob(duplicateModal.editId, duplicateModal.data);
+    else await addJob(duplicateModal.data);
     setModalOpen(false);
     setDuplicateModal({ isOpen: false, data: null });
   };
@@ -298,13 +308,15 @@ export const Production: React.FC = () => {
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
+                        {canEdit && (
+<button
                           onClick={() => openEditModal(job)}
                           className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition"
                           title="Edit production log"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+)}
                         {canDelete ? (
                           <button
                             onClick={() => handleDelete(job.id)}

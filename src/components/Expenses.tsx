@@ -39,6 +39,7 @@ export const Expenses: React.FC = () => {
     updateExpense, 
     deleteExpense, 
     addInward,
+    canEdit,
     canDelete, 
     checkDuplicate, 
     calculatePartyBalance 
@@ -62,6 +63,8 @@ export const Expenses: React.FC = () => {
     isOpen: boolean;
     data: any;
     details?: string;
+    isEdit?: boolean;
+    editId?: string;
   }>({
     isOpen: false,
     data: null,
@@ -376,18 +379,21 @@ export const Expenses: React.FC = () => {
       notes: notes.trim(),
     };
 
-    if (!editingExpense) {
-      const dup = checkDuplicate('expense', payload);
-      if (dup.isDuplicate) {
-        setDuplicateModal({
-          isOpen: true,
-          data: payload,
-          details: dup.details,
-        });
-        return;
-      }
+    const dup = checkDuplicate('expense', payload, editingExpense?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({
+        isOpen: true,
+        data: payload,
+        details: dup.details,
+        isEdit: !!editingExpense,
+        editId: editingExpense?.id,
+      });
+      return;
+    }
+    if (editingExpense) {
+      await updateExpense(editingExpense.id, payload);
+    } else {
       await addExpense(payload);
-
       // Optionally record in material inward stock
       if (entryMode === 'material' && addToStock && partyId && quantity && parseFloat(quantity) > 0) {
         await addInward({
@@ -403,14 +409,30 @@ export const Expenses: React.FC = () => {
           notes: `Logged via Material Expense [${computedTitle}]`,
         });
       }
-    } else {
-      await updateExpense(editingExpense.id, payload);
     }
     setModalOpen(false);
   };
 
   const handleConfirmDuplicate = async () => {
-    await addExpense(duplicateModal.data);
+    if (duplicateModal.isEdit && duplicateModal.editId) {
+      await updateExpense(duplicateModal.editId, duplicateModal.data);
+    } else {
+      await addExpense(duplicateModal.data);
+      if (entryMode === 'material' && addToStock && duplicateModal.data.party_id && Number(duplicateModal.data.quantity) > 0) {
+        await addInward({
+          date: duplicateModal.data.date,
+          party_id: duplicateModal.data.party_id,
+          party_name: duplicateModal.data.party_name || duplicateModal.data.paid_to,
+          material_type: duplicateModal.data.material_type,
+          quantity_mt: Number(duplicateModal.data.quantity),
+          quantity_unit: duplicateModal.data.unit,
+          rate: Number(duplicateModal.data.rate) || (Number(duplicateModal.data.amount) / Number(duplicateModal.data.quantity)),
+          amount: Number(duplicateModal.data.amount) || 0,
+          vehicle_no: duplicateModal.data.vehicle_no || undefined,
+          notes: `Logged via Material Expense [${duplicateModal.data.title}]`,
+        });
+      }
+    }
     setModalOpen(false);
     setDuplicateModal({ isOpen: false, data: null });
   };
@@ -827,13 +849,15 @@ export const Expenses: React.FC = () => {
                     {/* Actions */}
                     <td className="px-4 py-3.5 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
+                        {canEdit && (
+<button
                           onClick={() => openEditModal(exp)}
                           className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition"
                           title="Edit expense"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+)}
                         {canDelete ? (
                           <button
                             onClick={() => handleDelete(exp.id)}

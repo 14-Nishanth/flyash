@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { Expense, MaterialInward, ManufacturingRecipe, RecipeMaterial, DEFAULT_MANUFACTURING_RECIPE } from '../types';
 import {
   TrendingUp,
   Calendar,
@@ -32,6 +33,9 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
     calculatePartyBalance,
     settings,
     setActiveTab,
+    canEdit,
+    lastSyncedTime,
+    updateManufacturingRecipe,
   } = useApp();
 
   const now = new Date();
@@ -54,7 +58,7 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
   // Format local calendar dates without UTC conversion (toISOString can shift dates in India).
   const toDateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-  // Compute date boundaries using real Monday-Sunday calendar weeks.
+  // Compute Monday-Sunday weeks, clipped to the selected month so adjacent months are never counted twice.
   const { startDate, endDate, periodLabel } = useMemo(() => {
     const [yearStr, monthStr] = selectedMonth.split('-');
     const year = parseInt(yearStr, 10);
@@ -67,15 +71,41 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
     weekStart.setDate(weekStart.getDate() + (selectedWeek - 1) * 7);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
+    const clippedStart = weekStart < firstOfMonth ? firstOfMonth : weekStart;
+    const clippedEnd = weekEnd > lastOfMonth ? lastOfMonth : weekEnd;
 
     if (selectedPeriodType === 'month') {
       return { startDate: toDateKey(firstOfMonth), endDate: toDateKey(lastOfMonth), periodLabel: firstOfMonth.toLocaleString('default', { month: 'long', year: 'numeric' }) };
     }
     if (selectedPeriodType === 'week') {
-      return { startDate: toDateKey(weekStart), endDate: toDateKey(weekEnd), periodLabel: `Week ${selectedWeek} (${toDateKey(weekStart)} to ${toDateKey(weekEnd)})` };
+      return { startDate: toDateKey(clippedStart), endDate: toDateKey(clippedEnd), periodLabel: `Week ${selectedWeek} (${toDateKey(clippedStart)} to ${toDateKey(clippedEnd)})` };
     }
     return { startDate: customFrom, endDate: customTo, periodLabel: `${customFrom} to ${customTo}` };
   }, [selectedMonth, selectedPeriodType, selectedWeek, customFrom, customTo]);
+
+  const getOperationalExpenseTotal = (expenseRows: Expense[], inwardRows: MaterialInward[]) => {
+    const matchedInwardIds = new Set<string>();
+    return expenseRows.reduce((sum, expense) => {
+      if (expense.expense_type === 'supplier_payment' ||
+          expense.category === 'Supplier Due Payment' ||
+          expense.category.includes('Supplier Due Payment') ||
+          expense.category.includes('Outstanding Settlement')) return sum;
+      if (expense.expense_type === 'material_purchase') {
+        const mirror = inwardRows.find((inward) =>
+          !matchedInwardIds.has(inward.id) &&
+          inward.party_id === expense.party_id &&
+          inward.date === expense.date &&
+          String(inward.material_type || '').trim().toLowerCase() === String(expense.material_type || '').trim().toLowerCase() &&
+          Math.abs((Number(inward.amount) || 0) - (Number(expense.amount) || 0)) < 0.01
+        );
+        if (mirror) {
+          matchedInwardIds.add(mirror.id);
+          return sum;
+        }
+      }
+      return sum + (Number(expense.amount) || 0);
+    }, 0);
+  };
 
   // Filter Data within Range
   const filteredOutwards = outwards.filter((o) => o.date >= startDate && o.date <= endDate);
@@ -87,14 +117,14 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
   const grossTurnover = filteredOutwards.reduce((sum, o) => sum + o.amount, 0);
   const rawMaterialPurchases = filteredInwards.reduce((sum, i) => sum + i.amount, 0);
   const totalLaborWages = filteredJobs.reduce((sum, j) => sum + j.total_amount, 0);
-  const operationalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const operationalExpenses = getOperationalExpenseTotal(filteredExpenses, filteredInwards);
 
   const totalCOGSAndOps = rawMaterialPurchases + totalLaborWages + operationalExpenses;
   const netProfit = grossTurnover - totalCOGSAndOps;
   const profitMarginPercent = grossTurnover > 0 ? (netProfit / grossTurnover) * 100 : 0;
 
   // Physical Production & Dispatch Metrics
-  const totalPiecesProduced = filteredJobs.reduce((sum, j) => sum + j.quantity, 0);
+  const totalPiecesProduced = filteredJobs.filter((j) => j.job_type === 'Only Production' || j.job_type === 'Production').reduce((sum, j) => sum + (Number(j.quantity) || 0), 0);
   const totalDispatchesCount = filteredOutwards.reduce((sum, o) => sum + o.quantity_mt, 0);
 
   // Overall Outstanding Receivables & Payables
@@ -109,7 +139,7 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
     partyLedgers.push({ party: p, balance: bal });
   });
 
-  // Week-by-week table uses full Monday-Sunday date ranges.
+  // Week-by-week totals are clipped to the selected month and use the same expense rules as the headline totals.
   const weekBreakdown = useMemo(() => {
     const [yearStr, monthStr] = selectedMonth.split('-');
     const year = parseInt(yearStr, 10);
@@ -124,19 +154,21 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
       const weekStart = new Date(start);
       const weekEnd = new Date(start);
       weekEnd.setDate(weekEnd.getDate() + 6);
-      const startD = toDateKey(weekStart);
-      const endD = toDateKey(weekEnd);
+      const clippedStart = weekStart < firstOfMonth ? firstOfMonth : weekStart;
+      const clippedEnd = weekEnd > lastOfMonth ? lastOfMonth : weekEnd;
+      const startD = toDateKey(clippedStart);
+      const endD = toDateKey(clippedEnd);
 
       const wOutwards = outwards.filter((o) => o.date >= startD && o.date <= endD);
       const wInwards = inwards.filter((i) => i.date >= startD && i.date <= endD);
       const wJobs = jobs.filter((j) => j.date >= startD && j.date <= endD);
       const wExpenses = expenses.filter((e) => e.date >= startD && e.date <= endD);
-      const wTurnover = wOutwards.reduce((sum, o) => sum + o.amount, 0);
-      const wMatCost = wInwards.reduce((sum, i) => sum + i.amount, 0);
-      const wLabor = wJobs.reduce((sum, j) => sum + j.total_amount, 0);
-      const wOps = wExpenses.reduce((sum, e) => sum + e.amount, 0);
-      const wProduced = wJobs.reduce((sum, j) => sum + j.quantity, 0);
-      const wDispatched = wOutwards.reduce((sum, o) => sum + o.quantity_mt, 0);
+      const wTurnover = wOutwards.reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
+      const wMatCost = wInwards.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+      const wLabor = wJobs.reduce((sum, j) => sum + (Number(j.total_amount) || 0), 0);
+      const wOps = getOperationalExpenseTotal(wExpenses, wInwards);
+      const wProduced = wJobs.filter((j) => j.job_type === 'Only Production' || j.job_type === 'Production').reduce((sum, j) => sum + (Number(j.quantity) || 0), 0);
+      const wDispatched = wOutwards.reduce((sum, o) => sum + (Number(o.quantity_mt) || 0), 0);
       const wNetSurplus = wTurnover - (wMatCost + wLabor + wOps);
       weeks.push({ weekNumber: weekNum, startDate: startD, endDate: endD, turnover: wTurnover, materialCost: wMatCost, laborCost: wLabor, expenses: wOps, produced: wProduced, dispatched: wDispatched, netSurplus: wNetSurplus });
       weekNum++;
@@ -145,39 +177,50 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
   }, [selectedMonth, outwards, inwards, jobs, expenses]);
 
   // Editable batch recipe and purchase-unit costs. Saved in this browser between visits.
-  type RecipeMaterial = { id: string; name: string; purchasePrice: number; purchaseQuantity: number; purchaseUnitKg: number; kgPerBatch: number };
-  type RecipeSettings = { bricksPerBatch: number; sellingPricePerBrick: number; laborPerBatch: number; powerFuelPerBatch: number; materials: RecipeMaterial[] };
-  const defaultRecipe: RecipeSettings = {
-    bricksPerBatch: 5000,
-    sellingPricePerBrick: 5.5,
-    laborPerBatch: 3000,
-    powerFuelPerBatch: 1750,
-    materials: [
-      { id: 'ash', name: 'Fly ash', purchasePrice: 1000, purchaseQuantity: 1, purchaseUnitKg: 1000, kgPerBatch: 40 },
-      { id: 'cement', name: 'Cement', purchasePrice: 350, purchaseQuantity: 1, purchaseUnitKg: 50, kgPerBatch: 17 },
-      { id: 'dust', name: 'Dust', purchasePrice: 17000, purchaseQuantity: 1, purchaseUnitKg: 3200, kgPerBatch: 80 },
-      { id: 'cooldust', name: 'Cooldust', purchasePrice: 4500, purchaseQuantity: 1, purchaseUnitKg: 3200, kgPerBatch: 100 },
-    ],
-  };
-  const [recipe, setRecipe] = useState<RecipeSettings>(() => {
+  const defaultRecipe: ManufacturingRecipe = DEFAULT_MANUFACTURING_RECIPE;
+  const [recipe, setRecipe] = useState<ManufacturingRecipe>(() => {
+    if (settings.manufacturing_recipe) return settings.manufacturing_recipe;
     try {
       const saved = localStorage.getItem('flyash-profit-margin-recipe-v1');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && Array.isArray(parsed.materials) && parsed.materials.length) return { ...defaultRecipe, ...parsed };
       }
-    } catch { /* use defaults if saved settings cannot be read */ }
+    } catch { /* use the shared default if browser storage is unavailable */ }
     return defaultRecipe;
   });
+
+  // Cloud settings are authoritative after the initial shared-data sync.
+  useEffect(() => {
+    if (settings.manufacturing_recipe) setRecipe(settings.manufacturing_recipe);
+  }, [settings.manufacturing_recipe]);
+
   useEffect(() => {
     try { localStorage.setItem('flyash-profit-margin-recipe-v1', JSON.stringify(recipe)); } catch { /* browser storage may be unavailable */ }
   }, [recipe]);
 
-  const updateRecipe = (patch: Partial<RecipeSettings>) => setRecipe((current) => ({ ...current, ...patch }));
-  const updateMaterial = (id: string, patch: Partial<RecipeMaterial>) => setRecipe((current) => ({
-    ...current,
-    materials: current.materials.map((material) => material.id === id ? { ...material, ...patch } : material),
-  }));
+  // Debounced cloud persistence avoids writing on every keystroke while keeping the
+  // same manufacturing recipe available to all authenticated devices.
+  useEffect(() => {
+    if (!canEdit || !lastSyncedTime) return;
+    if (JSON.stringify(settings.manufacturing_recipe || null) === JSON.stringify(recipe)) return;
+    const timer = window.setTimeout(() => {
+      updateManufacturingRecipe(recipe).catch((error) => console.error('Could not sync manufacturing recipe:', error));
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [recipe, settings.manufacturing_recipe, lastSyncedTime, canEdit]);
+
+  const updateRecipe = (patch: Partial<ManufacturingRecipe>) => {
+    if (!canEdit) return;
+    setRecipe((current) => ({ ...current, ...patch }));
+  };
+  const updateMaterial = (id: string, patch: Partial<RecipeMaterial>) => {
+    if (!canEdit) return;
+    setRecipe((current) => ({
+      ...current,
+      materials: current.materials.map((material) => material.id === id ? { ...material, ...patch } : material),
+    }));
+  };
   const materialCosts = recipe.materials.map((material) => {
     const purchasedKg = Math.max(0, material.purchaseQuantity * material.purchaseUnitKg);
     const costPerKg = purchasedKg > 0 ? material.purchasePrice / purchasedKg : 0;

@@ -10,7 +10,7 @@ const today = () => {
 const money = (value: number) => '₹' + (Number(value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const Wages: React.FC = () => {
-  const { employees, workerGroups, jobs, addJob } = useApp();
+  const { employees, workerGroups, jobs, addJob, checkDuplicate } = useApp();
   const [workDate, setWorkDate] = useState(today());
   const [groupId, setGroupId] = useState('');
   const [workDescription, setWorkDescription] = useState('');
@@ -44,7 +44,7 @@ export const Wages: React.FC = () => {
     if (members.length === 0) { alert('This gang has no active workers. Add workers to the gang first.'); return; }
     setSaving(true);
     try {
-      await addJob({
+      const gangEntry = {
         date: workDate,
         group_name: selectedGroup.name,
         job_type: 'Gang Work',
@@ -63,7 +63,10 @@ export const Wages: React.FC = () => {
         wage_per_worker: Math.round((amount / members.length) * 100) / 100,
         worker_ids: members.map((m) => m!.id),
         notes: [notes.trim(), 'Workers: ' + members.map((m) => m!.name).join(', ')].filter(Boolean).join(' | '),
-      });
+      };
+      const duplicate = checkDuplicate('job', gangEntry);
+      if (duplicate.isDuplicate && !window.confirm(`${duplicate.details}\n\nSave this gang-work entry anyway?`)) return;
+      await addJob(gangEntry);
       setWorkDescription('');
       setTotalSalary('');
       setNotes('');

@@ -13,6 +13,7 @@ export const Attendance: React.FC = () => {
     addEmployee,
     updateEmployee,
     deleteEmployee,
+    canEdit,
     canDelete,
     checkDuplicate,
   } = useApp();
@@ -26,6 +27,8 @@ export const Attendance: React.FC = () => {
     isOpen: boolean;
     data: any;
     details?: string;
+    isEdit?: boolean;
+    editId?: string;
   }>({
     isOpen: false,
     data: null,
@@ -97,26 +100,27 @@ export const Attendance: React.FC = () => {
       is_active: true,
     };
 
-    if (!editingEmp) {
-      const dup = checkDuplicate('employee', payload);
-      if (dup.isDuplicate) {
-        setDuplicateModal({
-          isOpen: true,
-          data: payload,
-          details: dup.details,
-        });
-        return;
-      }
-      await addEmployee(payload);
-    } else {
-      await updateEmployee(editingEmp.id, payload);
+    const dup = checkDuplicate('employee', payload, editingEmp?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({
+        isOpen: true,
+        data: payload,
+        details: dup.details,
+        isEdit: !!editingEmp,
+        editId: editingEmp?.id,
+      });
+      return;
     }
+    if (editingEmp) await updateEmployee(editingEmp.id, payload);
+    else await addEmployee(payload);
     setAddEmpModal(false);
   };
 
   const handleConfirmDuplicateEmp = async () => {
-    await addEmployee(duplicateModal.data);
+    if (duplicateModal.isEdit && duplicateModal.editId) await updateEmployee(duplicateModal.editId, duplicateModal.data);
+    else await addEmployee(duplicateModal.data);
     setAddEmpModal(false);
+    setEditingEmp(null);
     setDuplicateModal({ isOpen: false, data: null });
   };
 
@@ -230,13 +234,15 @@ export const Attendance: React.FC = () => {
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
+                        {canEdit && (
+<button
                           onClick={() => openEditEmp(emp)}
                           className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 rounded-lg transition"
                           title="Edit worker"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+)}
                         {canDelete ? (
                           <button
                             onClick={() => handleDeleteEmp(emp.id)}

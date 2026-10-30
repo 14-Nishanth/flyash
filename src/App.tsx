@@ -15,7 +15,14 @@ import { Database, LogOut, Sun, Moon, ChevronUp, ChevronDown } from 'lucide-reac
 
 export const App: React.FC = () => {
   const { currentUser, activeTab, setActiveTab, theme, toggleTheme, logout } = useApp();
+  const visibleMenuOptions = MENU_OPTIONS.filter((item) => item.id !== 'settings' || currentUser?.role === 'admin' || currentUser?.role === 'owner');
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (currentUser && currentUser.role !== 'admin' && currentUser.role !== 'owner' && activeTab === 'settings') {
+      setActiveTab('dashboard');
+    }
+  }, [currentUser, activeTab, setActiveTab]);
 
   React.useEffect(() => {
     // Prevent accidental number input scrolling and Ctrl+Wheel zooming
@@ -65,7 +72,7 @@ export const App: React.FC = () => {
             <div className="hidden sm:block px-2 py-1 text-[9px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">
               Modules
             </div>
-            {MENU_OPTIONS.map((item) => {
+            {visibleMenuOptions.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               return (
@@ -184,7 +191,7 @@ export const App: React.FC = () => {
       {/* Phone navigation: horizontally scrollable, thumb-friendly module buttons */}
       <nav aria-label="Main navigation" className="sm:hidden fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-lg pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-stretch gap-1 overflow-x-auto px-2 py-2">
-          {MENU_OPTIONS.map((item) => {
+          {visibleMenuOptions.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (

@@ -117,11 +117,13 @@ export const Navbar: React.FC = () => {
     logout,
     syncWithCloud,
     isSyncing,
-    lastSyncedTime
+    lastSyncedTime,
+    canManageUsers
   } = useApp();
   const isSupabaseConnected = !!getSupabaseClient();
+  const visibleMenuOptions = MENU_OPTIONS.filter((item) => item.id !== 'settings' || canManageUsers);
 
-  const currentNav = MENU_OPTIONS.find((item) => item.id === activeTab) || MENU_OPTIONS[0];
+  const currentNav = visibleMenuOptions.find((item) => item.id === activeTab) || MENU_OPTIONS[0];
   const CurrentIcon = currentNav.icon;
 
   return (

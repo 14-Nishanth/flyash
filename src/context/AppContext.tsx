@@ -14,6 +14,8 @@ import {
   UserRole,
   WorkerGroup,
   ProductRateMaster,
+  ManufacturingRecipe,
+  DEFAULT_MANUFACTURING_RECIPE,
 } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 import { CLOUD_COLLECTIONS, CloudCollection, getCloudRole, hasCloudAccess, readCloudRecords, sanitizeCloudRecord, saveCloudRecord, softDeleteCloudRecord } from '../lib/cloudRecords';
@@ -32,6 +34,7 @@ interface AppContextType {
   toggleTheme: () => void;
   currentUser: UserSession | null;
   canDelete: boolean;
+  canEdit: boolean;
   canManageUsers: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
@@ -99,12 +102,13 @@ interface AppContextType {
   deleteProductRate: (id: string) => Promise<boolean>;
   // Utilities
   updateSettings: (newSettings: AlertSettings) => void;
+  updateManufacturingRecipe: (recipe: ManufacturingRecipe) => Promise<void>;
   calculatePartyBalance: (partyId: string) => number;
   getRawMaterialStock: () => { [mat: string]: { quantity: number; unit: string; secondaryInfo?: string } };
   getProductStock: () => { [prod: string]: { produced: number; dispatched: number; stock: number } };
   calculateGroupWageDistribution: (groupId: string, totalWageAmount: number, overrideWorkerIds?: string[]) => { workerId: string; wage: number }[];
   // Duplicate check
-  checkDuplicate: (type: 'party' | 'inward' | 'outward' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate', data: any, excludeId?: string) => { isDuplicate: boolean; details?: string };
+  checkDuplicate: (type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate', data: any, excludeId?: string) => { isDuplicate: boolean; details?: string };
   // Multi-Device Cloud Synchronization
   syncWithCloud: () => Promise<boolean>;
   isSyncing: boolean;
@@ -521,8 +525,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   // Role permissions: Only Admin or Owner can delete data or manage users
-  const canDelete = currentUser?.role === 'admin' || currentUser?.role === 'owner';
-  const canManageUsers = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const canDelete = isAdmin;
+  const canEdit = isAdmin || currentUser?.role === 'manager';
+  const canManageUsers = isAdmin;
+  const assertCanEdit = (label = 'business records') => {
+    if (!canEdit) throw new Error(`Access denied: only Admin or Manager can edit ${label}.`);
+  };
 
   // Shared data requires a real Supabase Auth identity; browser-only demo credentials cannot sync securely.
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
@@ -813,7 +822,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Duplicate Check Helper
   const checkDuplicate = (
-    type: 'party' | 'inward' | 'outward' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate',
+    type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate',
     data: any,
     excludeId?: string
   ): { isDuplicate: boolean; details?: string } => {
@@ -936,13 +945,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    if (type === 'payment') {
+      const match = payments.find((p) => p.id !== excludeId && p.date === data.date && p.party_id === data.party_id && p.payment_type === data.payment_type && Number(p.amount) === Number(data.amount) && p.mode === data.mode);
+      if (match) return { isDuplicate: true, details: `Payment of ₹${match.amount} (${match.payment_type}) for ${match.party_name || 'this party'} on ${match.date} already exists.` };
+    }
+    if (type === 'adjustment') {
+      const match = partyAdjustments.find((a) => a.id !== excludeId && a.date === data.date && a.party_id === data.party_id && a.voucher_type === data.voucher_type && a.category === data.category && Number(a.amount) === Number(data.amount));
+      if (match) return { isDuplicate: true, details: `${match.voucher_type} voucher of ₹${match.amount} for ${match.party_name || 'this party'} on ${match.date} already exists.` };
+    }
+
     return { isDuplicate: false };
   };
 
   // User management is performed through a server-side Supabase Edge Function; never store user passwords in browser state.
   const refreshUsers = async (user: { app_metadata?: Record<string, unknown> } | null | undefined) => {
     const role = getCloudRole(user);
-    if (role !== 'admin' && role !== 'owner') { setUsers([]); return; }
+    if (role !== 'admin') { setUsers([]); return; }
     const supabase = getSupabaseClient();
     if (!supabase) return;
     const { data, error } = await supabase.functions.invoke('manage-users', { body: { action: 'list' } });
@@ -1016,6 +1034,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateGroup = async (id: string, updated: Partial<WorkerGroup>) => {
+    assertCanEdit();
     const mergedGroup = { ...(workerGroups.find((g) => g.id === id) || {}), ...updated, id };
     setWorkerGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...updated } : g)));
     await persistRecord('workerGroups', mergedGroup as unknown as Record<string, unknown>);
@@ -1043,6 +1062,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateProductRate = async (id: string, updated: Partial<ProductRateMaster>) => {
+    assertCanEdit();
     const mergedRate = { ...(productRates.find((p) => p.id === id) || {}), ...updated, id };
     setProductRates((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
     await persistRecord('productRates', mergedRate as unknown as Record<string, unknown>);
@@ -1070,6 +1090,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
   const updateParty = async (id: string, updated: Partial<Party>) => {
+    assertCanEdit();
     const mergedParty = { ...(parties.find((p) => p.id === id) || {}), ...updated, id };
     setParties((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
     await persistRecord('parties', mergedParty as unknown as Record<string, unknown>);
@@ -1099,6 +1120,7 @@ await persistRecord('inwards', newInward as unknown as Record<string, unknown>);
   };
 
   const updateInward = async (id: string, updated: Partial<MaterialInward>) => {
+    assertCanEdit();
     if (updated.party_id) {
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
@@ -1132,6 +1154,7 @@ await persistRecord('outwards', newOutward as unknown as Record<string, unknown>
   };
 
   const updateOutward = async (id: string, updated: Partial<MaterialOutward>) => {
+    assertCanEdit();
     if (updated.party_id) {
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
@@ -1165,6 +1188,7 @@ return true;
 };
 
   const updatePayment = async (id: string, updated: Partial<Payment>) => {
+    assertCanEdit();
     if (updated.party_id) {
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
@@ -1198,6 +1222,7 @@ return true;
 };
 
   const updatePartyAdjustment = async (id: string, updated: Partial<PartyAdjustment>) => {
+    assertCanEdit();
     if (updated.party_id) {
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) updated.party_name = party.name;
@@ -1229,6 +1254,7 @@ return true;
 };
 
   const updateJob = async (id: string, updated: Partial<JobWageEntry>) => {
+    assertCanEdit();
     const mergedJob = { ...(jobs.find((j) => j.id === id) || {}), ...updated, id };
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...updated } : j)));
     await persistRecord('jobs', mergedJob as unknown as Record<string, unknown>);
@@ -1255,6 +1281,7 @@ return true;
 };
 
   const updateEmployee = async (id: string, updated: Partial<Employee>) => {
+    assertCanEdit();
     const mergedEmployee = { ...(employees.find((e) => e.id === id) || {}), ...updated, id };
     setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
     await persistRecord('employees', mergedEmployee as unknown as Record<string, unknown>);
@@ -1272,6 +1299,7 @@ return true;
 
   // --- ATTENDANCE CRUD ---
   const saveAttendance = async (date: string, records: { employee_id: string; status: any; notes?: string }[]) => {
+    assertCanEdit('attendance');
     const newRecords: AttendanceRecord[] = records.map((r) => {
       const emp = employees.find((e) => e.id === r.employee_id);
       return {
@@ -1326,7 +1354,19 @@ return true;
     await persistRecord('expenses', newExpense as unknown as Record<string, unknown>);
 };
 
+  const findLinkedMaterialInward = (expense?: Expense) => {
+    if (!expense || expense.expense_type !== 'material_purchase') return undefined;
+    return inwards.find((inward) =>
+      inward.date === expense.date &&
+      inward.party_id === expense.party_id &&
+      String(inward.material_type || '').trim().toLowerCase() === String(expense.material_type || '').trim().toLowerCase() &&
+      Math.abs((Number(inward.amount) || 0) - (Number(expense.amount) || 0)) < 0.01 &&
+      String(inward.notes || '').startsWith('Logged via Material Expense')
+    );
+  };
+
   const updateExpense = async (id: string, updated: Partial<Expense>) => {
+    assertCanEdit();
     if (updated.party_id) {
       const party = parties.find((p) => p.id === updated.party_id);
       if (party) {
@@ -1334,22 +1374,62 @@ return true;
         if (!updated.paid_to) updated.paid_to = party.name;
       }
     }
-    const mergedExpense = { ...(expenses.find((e) => e.id === id) || {}), ...updated, id };
-    setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...updated } : e)));
+    const existingExpense = expenses.find((e) => e.id === id);
+    const mergedExpense = { ...(existingExpense || {}), ...updated, id } as Expense;
+    const linkedInward = findLinkedMaterialInward(existingExpense);
+    setExpenses((prev) => prev.map((e) => (e.id === id ? mergedExpense : e)));
     await persistRecord('expenses', mergedExpense as unknown as Record<string, unknown>);
-};
+
+    // Keep the stock entry created from this expense in step with edits and deletions.
+    if (linkedInward) {
+      if (mergedExpense.expense_type === 'material_purchase' && mergedExpense.material_type && Number(mergedExpense.quantity) > 0) {
+        const party = parties.find((p) => p.id === mergedExpense.party_id);
+        const updatedInward: MaterialInward = {
+          ...linkedInward,
+          date: mergedExpense.date,
+          party_id: mergedExpense.party_id || linkedInward.party_id,
+          party_name: party?.name || mergedExpense.party_name || linkedInward.party_name,
+          material_type: mergedExpense.material_type,
+          quantity_mt: Number(mergedExpense.quantity),
+          quantity_unit: mergedExpense.unit || linkedInward.quantity_unit,
+          rate: Number(mergedExpense.rate) || Number(mergedExpense.amount) / Number(mergedExpense.quantity),
+          amount: Number(mergedExpense.amount) || 0,
+          notes: `Logged via Material Expense [${mergedExpense.title}]`,
+        };
+        setInwards((prev) => prev.map((item) => item.id === linkedInward.id ? updatedInward : item));
+        await persistRecord('inwards', updatedInward as unknown as Record<string, unknown>);
+      } else {
+        setInwards((prev) => prev.filter((item) => item.id !== linkedInward.id));
+        await removeCloudRecord('inwards', linkedInward.id);
+      }
+    }
+  };
 
   const deleteExpense = async (id: string): Promise<boolean> => {
     if (!canDelete) {
       alert('Access Denied: Only Administrator or Owner can delete expenses.');
       return false;
     }
+    const existingExpense = expenses.find((e) => e.id === id);
+    const linkedInward = findLinkedMaterialInward(existingExpense);
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     await removeCloudRecord('expenses', id);
-return true;
+    if (linkedInward) {
+      setInwards((prev) => prev.filter((item) => item.id !== linkedInward.id));
+      await removeCloudRecord('inwards', linkedInward.id);
+    }
+    return true;
+  };
+
+  const updateManufacturingRecipe = async (recipe: ManufacturingRecipe) => {
+    assertCanEdit('manufacturing recipe');
+    const nextSettings = { ...settings, manufacturing_recipe: recipe };
+    setSettings(nextSettings);
+    await persistRecord('settings', { ...nextSettings, id: 'global' });
   };
 
   const updateSettings = async (newSettings: AlertSettings) => {
+    if (!isAdmin) throw new Error('Access denied: only Admin can change company settings.');
     setSettings(newSettings);
     await persistRecord('settings', { ...newSettings, id: 'global' });
   };
@@ -1359,69 +1439,54 @@ return true;
     const party = parties.find((p) => p.id === partyId);
     if (!party) return 0;
 
-    let opBal = party.opening_balance || 0;
-    // If opening balance was set as debit (I need to pay), make it negative; if credit (party needs to pay me), make it positive
-    if (party.opening_balance_type === 'debit') {
-      opBal = -opBal;
-    }
+    const opening = Number(party.opening_balance) || 0;
+    const opBal = party.opening_balance_type === 'debit' ? -opening : opening;
+    const totalOutward = outwards.filter((m) => m.party_id === partyId).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const totalInward = inwards.filter((m) => m.party_id === partyId).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const received = payments.filter((p) => p.party_id === partyId && p.payment_type === 'received' && p.mode !== 'adjustment').reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const paid = payments.filter((p) => p.party_id === partyId && p.payment_type === 'paid' && p.mode !== 'adjustment').reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const adjCredit = partyAdjustments.filter((a) => a.party_id === partyId && a.voucher_type === 'credit').reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+    const adjDebit = partyAdjustments.filter((a) => a.party_id === partyId && a.voucher_type === 'debit').reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
 
-    const totalOutward = outwards
-      .filter((m) => m.party_id === partyId)
-      .reduce((sum, item) => sum + item.amount, 0);
+    // Expense entries can mirror a material inward when "Add to stock" is selected.
+    // Match each expense to at most one inward so the purchase is not counted twice.
+    const matchedInwardIds = new Set<string>();
+    const materialPurchaseExpensesWithInward = expenses.filter((expense) => {
+      if (expense.party_id !== partyId || expense.expense_type !== 'material_purchase') return false;
+      const match = inwards.find((inward) =>
+        !matchedInwardIds.has(inward.id) &&
+        inward.party_id === partyId &&
+        inward.date === expense.date &&
+        String(inward.material_type || '').trim().toLowerCase() === String(expense.material_type || '').trim().toLowerCase() &&
+        Math.abs((Number(inward.amount) || 0) - (Number(expense.amount) || 0)) < 0.01
+      );
+      if (!match) return false;
+      matchedInwardIds.add(match.id);
+      return true;
+    });
+    const paidAgainstInwardPurchases = materialPurchaseExpensesWithInward.reduce((sum, expense) => sum + (Number(expense.paid_amount) || 0), 0);
 
-    const totalInward = inwards
-      .filter((m) => m.party_id === partyId)
-      .reduce((sum, item) => sum + item.amount, 0);
-
-    // Voucher records are stored separately in partyAdjustments and must not be counted twice.
-    const received = payments
-      .filter((p) => p.party_id === partyId && p.payment_type === 'received' && p.mode !== 'adjustment')
-      .reduce((sum, item) => sum + item.amount, 0);
-
-    const paid = payments
-      .filter((p) => p.party_id === partyId && p.payment_type === 'paid' && p.mode !== 'adjustment')
-      .reduce((sum, item) => sum + item.amount, 0);
-
-    const adjCredit = partyAdjustments
-      .filter((a) => a.party_id === partyId && a.voucher_type === 'credit')
-      .reduce((sum, a) => sum + (a.amount || 0), 0);
-
-    const adjDebit = partyAdjustments
-      .filter((a) => a.party_id === partyId && a.voucher_type === 'debit')
-      .reduce((sum, a) => sum + (a.amount || 0), 0);
-
-    // Supplier payments logged from Expenses (reduces what I need to pay to supplier)
     const partyPaidExpenses = expenses
-      .filter(
-        (e) =>
-          e.party_id === partyId &&
-          (e.expense_type === 'supplier_payment' ||
-            e.category === 'Supplier Due Payment' ||
-            e.category.includes('Supplier Due Payment') ||
-            e.category.includes('Outstanding Settlement'))
-      )
-      .reduce((sum, e) => sum + (e.amount || 0), 0);
+      .filter((e) => e.party_id === partyId &&
+        (e.expense_type === 'supplier_payment' ||
+          e.category === 'Supplier Due Payment' ||
+          e.category.includes('Supplier Due Payment') ||
+          e.category.includes('Outstanding Settlement')))
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-    // Unpaid material purchases or expenses (increases what I need to pay / Debit)
     const unpaidExpenses = expenses
-      .filter(
-        (e) =>
-          e.party_id === partyId &&
-          e.expense_type !== 'supplier_payment' &&
-          !e.category.includes('Supplier Due Payment') &&
-          !e.category.includes('Outstanding Settlement') &&
-          (e.payment_status === 'unpaid' || e.payment_status === 'partial' || e.is_paid === false || e.payment_mode === 'credit')
-      )
-      .reduce((sum, e) => {
-        if (e.payment_status === 'partial' && e.due_amount !== undefined) {
-          return sum + e.due_amount;
-        }
-        return sum + (e.amount || 0);
-      }, 0);
+      .filter((e) => e.party_id === partyId &&
+        e.expense_type !== 'supplier_payment' &&
+        !e.category.includes('Supplier Due Payment') &&
+        !e.category.includes('Outstanding Settlement') &&
+        !materialPurchaseExpensesWithInward.includes(e) &&
+        (e.payment_status === 'unpaid' || e.payment_status === 'partial' || e.is_paid === false || e.payment_mode === 'credit'))
+      .reduce((sum, e) => sum + (Number(e.due_amount ?? e.amount) || 0), 0);
 
-    // +Credit increases party's due to me (party needs to pay me)
-    // -Debit increases what I need to pay party
-    return opBal + totalOutward - totalInward - unpaidExpenses - received + (paid + partyPaidExpenses) + adjCredit - adjDebit;
+    // Positive = customer receivable; negative = supplier payable.
+    // Paid amounts on mirrored material purchases offset the inward liability exactly once.
+    return opBal + totalOutward - totalInward - unpaidExpenses - received +
+      paid + partyPaidExpenses + paidAgainstInwardPurchases + adjCredit - adjDebit;
   };
 
   // Raw-material stock is displayed in a consistent unit. Dust/sand purchased
@@ -1477,8 +1542,99 @@ return true;
       }
     });
 
+    // Explicit raw-material outward movements reduce the matching stock bucket.
+    // Entries in a different unit are kept separate rather than silently mixed.
+    outwards.forEach((item) => {
+      const mat = canonicalMaterialName(item.material_type);
+      const unit = normalizeUnit(item.quantity_unit || 'Ton');
+      const resultKey = `${mat} (${unit})`;
+      if (result[resultKey]) result[resultKey].quantity -= Number(item.quantity_mt) || 0;
+    });
+
+    // Deduct production consumption from each job's saved recipe snapshot.
+    // Older jobs without snapshots use the current shared recipe as a migration fallback.
+    const recipe = settings.manufacturing_recipe || DEFAULT_MANUFACTURING_RECIPE;
+    const bricksPerBatch = Math.max(1, Number(recipe.bricksPerBatch) || DEFAULT_MANUFACTURING_RECIPE.bricksPerBatch);
+    const kgPerDisplayUnit = (unit: string, materialName: string, purchaseUnitKg: number) => {
+      if (unit === 'Kg') return 1;
+      if (unit === 'Ton') return 1000;
+      if (unit === 'Bags') return /cement/i.test(materialName) ? 50 : purchaseUnitKg;
+      if (unit === 'Units') return /dust|sand|aggregate|blue metal/i.test(materialName) ? 3200 : purchaseUnitKg;
+      return 1;
+    };
+    const productionJobs = jobs.filter((job) => job.job_type === 'Only Production' || job.job_type === 'Production');
+    productionJobs.forEach((job) => {
+      const usage = Array.isArray(job.material_consumption) && job.material_consumption.length
+        ? job.material_consumption
+        : recipe.materials.map((material) => ({
+            material_name: material.name,
+            quantity_kg: (Number(job.quantity) || 0) / bricksPerBatch * (Number(material.kgPerBatch) || 0),
+          }));
+      usage.forEach((consumption) => {
+        const kgToConsume = Number(consumption.quantity_kg) || 0;
+        if (kgToConsume <= 0) return;
+        const canonical = canonicalMaterialName(consumption.material_name);
+        const canonicalLower = canonical.toLowerCase();
+        const matchesMaterial = (bucketName: string) => {
+          const lower = bucketName.toLowerCase();
+          if (lower === canonicalLower) return true;
+          if (canonicalLower === 'dust' && !/cool/.test(lower) && /dust|quarry dust|blue metal/.test(lower)) return true;
+          if (canonicalLower.includes('cool dust') && /cool ?dust|fine p sand/.test(lower)) return true;
+          return false;
+        };
+        const bucketKeys = Object.keys(result).filter((key) => {
+          const baseName = key.slice(0, key.lastIndexOf(' ('));
+          return matchesMaterial(baseName);
+        });
+        const recipeMaterial = recipe.materials.find((item) =>
+          canonicalMaterialName(item.name).toLowerCase() === canonicalLower
+        );
+        const purchaseUnitKg = Math.max(1, Number(recipeMaterial?.purchaseUnitKg) || 1000);
+        const materialName = consumption.material_name || canonical;
+        const preferredUnit = purchaseUnitKg >= 3000 && /dust|sand|aggregate|blue metal/i.test(materialName)
+          ? 'Units'
+          : purchaseUnitKg >= 45 && purchaseUnitKg <= 55 && /cement/i.test(materialName)
+            ? 'Bags'
+            : purchaseUnitKg >= 900 && purchaseUnitKg <= 1100
+              ? 'Ton'
+              : 'Kg';
+        const unitPriority = [preferredUnit, 'Ton', 'Kg', 'Bags', 'Units'];
+        bucketKeys.sort((left, right) => {
+          const leftPriority = unitPriority.indexOf(result[left].unit);
+          const rightPriority = unitPriority.indexOf(result[right].unit);
+          return (leftPriority < 0 ? 999 : leftPriority) - (rightPriority < 0 ? 999 : rightPriority);
+        });
+
+        let remainingKg = kgToConsume;
+        for (const key of bucketKeys) {
+          if (remainingKg <= 0) break;
+          const unitKg = kgPerDisplayUnit(result[key].unit, materialName, purchaseUnitKg);
+          const availableKg = Math.max(0, result[key].quantity) * unitKg;
+          const consumedKg = Math.min(remainingKg, availableKg);
+          result[key].quantity -= consumedKg / unitKg;
+          remainingKg -= consumedKg;
+        }
+        if (remainingKg > 0) {
+          const deficitKey = bucketKeys[0] || `${canonical} (${preferredUnit})`;
+          if (!result[deficitKey]) result[deficitKey] = { quantity: 0, unit: preferredUnit };
+          const unitKg = kgPerDisplayUnit(result[deficitKey].unit, materialName, purchaseUnitKg);
+          result[deficitKey].quantity -= remainingKg / unitKg;
+        }
+      });
+    });
+
     Object.keys(result).forEach((mat) => {
-      result[mat].quantity = Math.round(result[mat].quantity * 1000) / 1000;
+      const entry = result[mat];
+      entry.quantity = Math.round(entry.quantity * 1000) / 1000;
+      const isCement = mat.toLowerCase().includes('cement');
+      const isDustOrSand = /dust|sand|aggregate|blue metal/.test(mat.toLowerCase());
+      if (isDustOrSand && entry.unit === 'Units') {
+        entry.secondaryInfo = `≈ ${(entry.quantity * 3.2).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes (1 Unit = 3.2 Tonnes)`;
+      } else if (entry.unit === 'Kg') {
+        entry.secondaryInfo = `≈ ${(entry.quantity / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes`;
+      } else if (entry.unit === 'Bags' && isCement) {
+        entry.secondaryInfo = `≈ ${(entry.quantity * 0.05).toLocaleString(undefined, { maximumFractionDigits: 3 })} Tonnes (50 kg/bag)`;
+      }
     });
 
     return result;
@@ -1506,12 +1662,14 @@ return true;
       if (key) {
         displayNameByKey[key] = String(pr.name).trim().replace(/\\s+/g, ' ');
         const opening = Number(pr.opening_stock) || 0;
-        byKey[key].produced += opening;
+        // Opening stock is available stock, not production made during the report period.
         byKey[key].stock += opening;
       }
     });
 
     jobs.forEach((job) => {
+      // Gang work and loading/unloading wages are not finished-goods production.
+      if (job.job_type !== 'Only Production' && job.job_type !== 'Production') return;
       const key = ensureProduct(job.product_name);
       if (!key) return;
       const quantity = Number(job.quantity) || 0;
@@ -1541,6 +1699,7 @@ return true;
         toggleTheme,
         currentUser,
         canDelete,
+        canEdit,
         canManageUsers,
         login,
         logout,
@@ -1596,6 +1755,7 @@ return true;
         updateProductRate,
         deleteProductRate,
         updateSettings,
+        updateManufacturingRecipe,
         calculatePartyBalance,
         getRawMaterialStock,
         getProductStock,

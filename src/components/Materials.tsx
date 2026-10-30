@@ -15,6 +15,7 @@ export const Materials: React.FC = () => {
     addOutward,
     updateOutward,
     deleteOutward,
+    canEdit,
     canDelete,
     checkDuplicate,
   } = useApp();
@@ -134,16 +135,17 @@ export const Materials: React.FC = () => {
       notes: inNotes,
     };
 
-    // Check duplicate if creating new
-    if (!editingInward) {
-      const dup = checkDuplicate('inward', payload);
+    // Check duplicates on create and edit, excluding the current record.
+    {
+      const dup = checkDuplicate('inward', payload, editingInward?.id);
       if (dup.isDuplicate) {
         setDuplicateModal({
           isOpen: true,
           type: 'inward',
           data: payload,
           details: dup.details,
-          isEdit: false,
+          isEdit: !!editingInward,
+          editId: editingInward?.id,
         });
         return;
       }
@@ -173,16 +175,17 @@ export const Materials: React.FC = () => {
       notes: outNotes,
     };
 
-    // Check duplicate if creating new
-    if (!editingOutward) {
-      const dup = checkDuplicate('outward', payload);
+    // Check duplicates on create and edit, excluding the current record.
+    {
+      const dup = checkDuplicate('outward', payload, editingOutward?.id);
       if (dup.isDuplicate) {
         setDuplicateModal({
           isOpen: true,
           type: 'outward',
           data: payload,
           details: dup.details,
-          isEdit: false,
+          isEdit: !!editingOutward,
+          editId: editingOutward?.id,
         });
         return;
       }
@@ -198,10 +201,12 @@ export const Materials: React.FC = () => {
 
   const handleConfirmDuplicate = async () => {
     if (duplicateModal.type === 'inward') {
-      await addInward(duplicateModal.data);
+      if (duplicateModal.isEdit && duplicateModal.editId) await updateInward(duplicateModal.editId, duplicateModal.data);
+      else await addInward(duplicateModal.data);
       setInwardModalOpen(false);
     } else if (duplicateModal.type === 'outward') {
-      await addOutward(duplicateModal.data);
+      if (duplicateModal.isEdit && duplicateModal.editId) await updateOutward(duplicateModal.editId, duplicateModal.data);
+      else await addOutward(duplicateModal.data);
       setOutwardModalOpen(false);
     }
     setDuplicateModal({ isOpen: false, type: 'inward', data: null });
@@ -308,13 +313,15 @@ export const Materials: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      <button
+                      {canEdit && (
+<button
                         onClick={() => openInwardEdit(item)}
                         className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition"
                         title="Edit entry"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
+)}
                       {canDelete ? (
                         <button
                           onClick={() => handleDeleteInward(item.id)}
@@ -395,13 +402,15 @@ export const Materials: React.FC = () => {
                       >
                         <Share2 className="w-3.5 h-3.5" />
                       </button>
-                      <button
+                      {canEdit && (
+<button
                         onClick={() => openOutwardEdit(item)}
                         className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition"
                         title="Edit entry"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
+)}
                       {canDelete ? (
                         <button
                           onClick={() => handleDeleteOutward(item.id)}

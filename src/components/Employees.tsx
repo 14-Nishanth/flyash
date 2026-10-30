@@ -34,6 +34,7 @@ export const Employees: React.FC = () => {
     addJob,
     updateProductRate,
     deleteProductRate,
+    canEdit,
     canDelete,
     checkDuplicate,
     calculateGroupWageDistribution,
@@ -133,6 +134,8 @@ export const Employees: React.FC = () => {
     type: 'employee' | 'group' | 'product_rate';
     data: any;
     details?: string;
+    isEdit?: boolean;
+    editId?: string;
   }>({
     isOpen: false,
     type: 'employee',
@@ -198,16 +201,13 @@ export const Employees: React.FC = () => {
       is_active: true,
     };
 
-    if (!editingEmp) {
-      const dup = checkDuplicate('employee', payload);
-      if (dup.isDuplicate) {
-        setDuplicateModal({ isOpen: true, type: 'employee', data: payload, details: dup.details });
-        return;
-      }
-      await addEmployee(payload);
-    } else {
-      await updateEmployee(editingEmp.id, payload);
+    const dup = checkDuplicate('employee', payload, editingEmp?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({ isOpen: true, type: 'employee', data: payload, details: dup.details, isEdit: !!editingEmp, editId: editingEmp?.id });
+      return;
     }
+    if (editingEmp) await updateEmployee(editingEmp.id, payload);
+    else await addEmployee(payload);
     setEmpModalOpen(false);
   };
 
@@ -260,16 +260,13 @@ export const Employees: React.FC = () => {
       member_shares: grpShares,
     };
 
-    if (!editingGroup) {
-      const dup = checkDuplicate('group', payload);
-      if (dup.isDuplicate) {
-        setDuplicateModal({ isOpen: true, type: 'group', data: payload, details: dup.details });
-        return;
-      }
-      await addGroup(payload);
-    } else {
-      await updateGroup(editingGroup.id, payload);
+    const dup = checkDuplicate('group', payload, editingGroup?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({ isOpen: true, type: 'group', data: payload, details: dup.details, isEdit: !!editingGroup, editId: editingGroup?.id });
+      return;
     }
+    if (editingGroup) await updateGroup(editingGroup.id, payload);
+    else await addGroup(payload);
     setGroupModalOpen(false);
   };
 
@@ -332,16 +329,13 @@ export const Employees: React.FC = () => {
       notes: prodNotes.trim(),
     };
 
-    if (!editingRate) {
-      const dup = checkDuplicate('product_rate', payload);
-      if (dup.isDuplicate) {
-        setDuplicateModal({ isOpen: true, type: 'product_rate', data: payload, details: dup.details });
-        return;
-      }
-      await addProductRate(payload);
-    } else {
-      await updateProductRate(editingRate.id, payload);
+    const dup = checkDuplicate('product_rate', payload, editingRate?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({ isOpen: true, type: 'product_rate', data: payload, details: dup.details, isEdit: !!editingRate, editId: editingRate?.id });
+      return;
     }
+    if (editingRate) await updateProductRate(editingRate.id, payload);
+    else await addProductRate(payload);
     setRateModalOpen(false);
   };
 
@@ -356,10 +350,16 @@ export const Employees: React.FC = () => {
   };
 
   const handleConfirmDuplicate = async () => {
-    if (duplicateModal.type === 'employee') await addEmployee(duplicateModal.data);
-    else if (duplicateModal.type === 'group') await addGroup(duplicateModal.data);
-    else if (duplicateModal.type === 'product_rate') await addProductRate(duplicateModal.data);
-
+    if (duplicateModal.type === 'employee') {
+      if (duplicateModal.isEdit && duplicateModal.editId) await updateEmployee(duplicateModal.editId, duplicateModal.data);
+      else await addEmployee(duplicateModal.data);
+    } else if (duplicateModal.type === 'group') {
+      if (duplicateModal.isEdit && duplicateModal.editId) await updateGroup(duplicateModal.editId, duplicateModal.data);
+      else await addGroup(duplicateModal.data);
+    } else if (duplicateModal.type === 'product_rate') {
+      if (duplicateModal.isEdit && duplicateModal.editId) await updateProductRate(duplicateModal.editId, duplicateModal.data);
+      else await addProductRate(duplicateModal.data);
+    }
     setEmpModalOpen(false);
     setGroupModalOpen(false);
     setRateModalOpen(false);
@@ -517,13 +517,15 @@ export const Employees: React.FC = () => {
                       <span className="px-2.5 py-1 bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 rounded-lg text-[10px] font-bold uppercase border border-amber-200 dark:border-amber-800/40">
                         {group.split_type === 'shares' ? 'Custom Share Ratio' : 'Equal Split'}
                       </span>
-                      <button
+                      {canEdit && (
+<button
                         onClick={() => openEditGroup(group)}
                         className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition"
                         title="Edit Gang"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
+)}
                       {canDelete && (
                         <button
                           onClick={() => handleDeleteGroup(group.id)}
@@ -634,7 +636,9 @@ export const Employees: React.FC = () => {
                       <td className="px-4 py-3.5">{empGroups.length ? <div className="flex flex-wrap gap-1">{empGroups.map((g) => <span key={g.id} className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-semibold">{g.name}</span>)}</div> : <span className="text-slate-400 text-[11px]">Unassigned</span>}</td>
                       <td className="px-4 py-3.5 text-right font-mono font-bold">₹{emp.daily_wage}</td>
                       <td className="px-4 py-3.5"><div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => openEditEmp(emp)} className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 rounded-lg" title="Edit Worker"><Edit2 className="w-3.5 h-3.5" /></button>
+                        {canEdit && (
+<button onClick={() => openEditEmp(emp)} className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 rounded-lg" title="Edit Worker"><Edit2 className="w-3.5 h-3.5" /></button>
+)}
                         {canDelete ? <button onClick={() => handleDeleteEmp(emp.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg" title="Remove Worker"><Trash2 className="w-3.5 h-3.5" /></button> : <span className="p-1.5 text-slate-300 dark:text-slate-700" title="Administrator access required"><Lock className="w-3.5 h-3.5" /></span>}
                       </div></td>
                     </tr>;
@@ -715,13 +719,15 @@ export const Employees: React.FC = () => {
                       </td>
                       <td className="px-4 py-3.5 text-center">
                         <div className="flex items-center justify-center gap-1.5 font-sans">
-                          <button
+                          {canEdit && (
+<button
                             onClick={() => openEditRate(pr)}
                             className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition"
                             title="Edit Rate"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
+)}
                           {canDelete && (
                             <button
                               onClick={() => handleDeleteRate(pr.id)}
