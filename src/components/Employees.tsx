@@ -34,6 +34,7 @@ export const Employees: React.FC = () => {
     addJob,
     updateProductRate,
     deleteProductRate,
+    canEdit,
     canDelete,
     checkDuplicate,
     calculateGroupWageDistribution,
@@ -517,13 +518,15 @@ export const Employees: React.FC = () => {
                       <span className="px-2.5 py-1 bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 rounded-lg text-[10px] font-bold uppercase border border-amber-200 dark:border-amber-800/40">
                         {group.split_type === 'shares' ? 'Custom Share Ratio' : 'Equal Split'}
                       </span>
-                      <button
+                      {canEdit && (
+<button
                         onClick={() => openEditGroup(group)}
                         className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition"
                         title="Edit Gang"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
+)}
                       {canDelete && (
                         <button
                           onClick={() => handleDeleteGroup(group.id)}
@@ -634,7 +637,9 @@ export const Employees: React.FC = () => {
                       <td className="px-4 py-3.5">{empGroups.length ? <div className="flex flex-wrap gap-1">{empGroups.map((g) => <span key={g.id} className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-semibold">{g.name}</span>)}</div> : <span className="text-slate-400 text-[11px]">Unassigned</span>}</td>
                       <td className="px-4 py-3.5 text-right font-mono font-bold">₹{emp.daily_wage}</td>
                       <td className="px-4 py-3.5"><div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => openEditEmp(emp)} className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 rounded-lg" title="Edit Worker"><Edit2 className="w-3.5 h-3.5" /></button>
+                        {canEdit && (
+<button onClick={() => openEditEmp(emp)} className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 rounded-lg" title="Edit Worker"><Edit2 className="w-3.5 h-3.5" /></button>
+)}
                         {canDelete ? <button onClick={() => handleDeleteEmp(emp.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg" title="Remove Worker"><Trash2 className="w-3.5 h-3.5" /></button> : <span className="p-1.5 text-slate-300 dark:text-slate-700" title="Administrator access required"><Lock className="w-3.5 h-3.5" /></span>}
                       </div></td>
                     </tr>;
@@ -715,13 +720,15 @@ export const Employees: React.FC = () => {
                       </td>
                       <td className="px-4 py-3.5 text-center">
                         <div className="flex items-center justify-center gap-1.5 font-sans">
-                          <button
+                          {canEdit && (
+<button
                             onClick={() => openEditRate(pr)}
                             className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition"
                             title="Edit Rate"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
+)}
                           {canDelete && (
                             <button
                               onClick={() => handleDeleteRate(pr.id)}
