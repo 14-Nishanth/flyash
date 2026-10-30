@@ -135,16 +135,17 @@ export const Materials: React.FC = () => {
       notes: inNotes,
     };
 
-    // Check duplicate if creating new
-    if (!editingInward) {
-      const dup = checkDuplicate('inward', payload);
+    // Check duplicates on create and edit, excluding the current record.
+    {
+      const dup = checkDuplicate('inward', payload, editingInward?.id);
       if (dup.isDuplicate) {
         setDuplicateModal({
           isOpen: true,
           type: 'inward',
           data: payload,
           details: dup.details,
-          isEdit: false,
+          isEdit: !!editingInward,
+          editId: editingInward?.id,
         });
         return;
       }
@@ -174,16 +175,17 @@ export const Materials: React.FC = () => {
       notes: outNotes,
     };
 
-    // Check duplicate if creating new
-    if (!editingOutward) {
-      const dup = checkDuplicate('outward', payload);
+    // Check duplicates on create and edit, excluding the current record.
+    {
+      const dup = checkDuplicate('outward', payload, editingOutward?.id);
       if (dup.isDuplicate) {
         setDuplicateModal({
           isOpen: true,
           type: 'outward',
           data: payload,
           details: dup.details,
-          isEdit: false,
+          isEdit: !!editingOutward,
+          editId: editingOutward?.id,
         });
         return;
       }
@@ -199,10 +201,12 @@ export const Materials: React.FC = () => {
 
   const handleConfirmDuplicate = async () => {
     if (duplicateModal.type === 'inward') {
-      await addInward(duplicateModal.data);
+      if (duplicateModal.isEdit && duplicateModal.editId) await updateInward(duplicateModal.editId, duplicateModal.data);
+      else await addInward(duplicateModal.data);
       setInwardModalOpen(false);
     } else if (duplicateModal.type === 'outward') {
-      await addOutward(duplicateModal.data);
+      if (duplicateModal.isEdit && duplicateModal.editId) await updateOutward(duplicateModal.editId, duplicateModal.data);
+      else await addOutward(duplicateModal.data);
       setOutwardModalOpen(false);
     }
     setDuplicateModal({ isOpen: false, type: 'inward', data: null });
