@@ -18,6 +18,7 @@ import {
   DEFAULT_MANUFACTURING_RECIPE,
 } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
+import { getManufacturingRecipe } from '../lib/manufacturingRecipe';
 import { CLOUD_COLLECTIONS, CloudCollection, getCloudRole, hasCloudAccess, readCloudRecords, sanitizeCloudRecord, saveCloudRecord, softDeleteCloudRecord } from '../lib/cloudRecords';
 import { trackFailedLoginAttempt, resetFailedLoginAttempts } from '../lib/notificationService';
 
@@ -1464,7 +1465,13 @@ return true;
       matchedInwardIds.add(match.id);
       return true;
     });
-    const paidAgainstInwardPurchases = materialPurchaseExpensesWithInward.reduce((sum, expense) => sum + (Number(expense.paid_amount) || 0), 0);
+    const paidAgainstInwardPurchases = materialPurchaseExpensesWithInward.reduce((sum, expense) => {
+      const explicitPaid = Number(expense.paid_amount);
+      const inferredPaid = expense.due_amount !== undefined
+        ? (Number(expense.amount) || 0) - (Number(expense.due_amount) || 0)
+        : expense.payment_status === 'paid' ? Number(expense.amount) || 0 : 0;
+      return sum + (Number.isFinite(explicitPaid) ? explicitPaid : inferredPaid);
+    }, 0);
 
     const partyPaidExpenses = expenses
       .filter((e) => e.party_id === partyId &&
@@ -1553,7 +1560,7 @@ return true;
 
     // Deduct production consumption from each job's saved recipe snapshot.
     // Older jobs without snapshots use the current shared recipe as a migration fallback.
-    const recipe = settings.manufacturing_recipe || DEFAULT_MANUFACTURING_RECIPE;
+    const recipe = getManufacturingRecipe(settings.manufacturing_recipe);
     const bricksPerBatch = Math.max(1, Number(recipe.bricksPerBatch) || DEFAULT_MANUFACTURING_RECIPE.bricksPerBatch);
     const kgPerDisplayUnit = (unit: string, materialName: string, purchaseUnitKg: number) => {
       if (unit === 'Kg') return 1;
