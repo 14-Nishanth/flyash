@@ -957,7 +957,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // User management is performed through a server-side Supabase Edge Function; never store user passwords in browser state.
   const refreshUsers = async (user: { app_metadata?: Record<string, unknown> } | null | undefined) => {
     const role = getCloudRole(user);
-    if (role !== 'admin' && role !== 'owner') { setUsers([]); return; }
+    if (role !== 'admin') { setUsers([]); return; }
     const supabase = getSupabaseClient();
     if (!supabase) return;
     const { data, error } = await supabase.functions.invoke('manage-users', { body: { action: 'list' } });
