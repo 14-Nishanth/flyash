@@ -45,6 +45,8 @@ export const Production: React.FC = () => {
     isOpen: boolean;
     data: any;
     details?: string;
+    isEdit?: boolean;
+    editId?: string;
   }>({
     isOpen: false,
     data: null,
@@ -157,13 +159,15 @@ export const Production: React.FC = () => {
       notes,
     };
 
-    if (!editingJob) {
-      const dup = checkDuplicate('job', payload);
+    {
+      const dup = checkDuplicate('job', payload, editingJob?.id);
       if (dup.isDuplicate) {
         setDuplicateModal({
           isOpen: true,
           data: payload,
           details: dup.details,
+          isEdit: !!editingJob,
+          editId: editingJob?.id,
         });
         return;
       }
@@ -175,7 +179,8 @@ export const Production: React.FC = () => {
   };
 
   const handleConfirmDuplicate = async () => {
-    await addJob(duplicateModal.data);
+    if (duplicateModal.isEdit && duplicateModal.editId) await updateJob(duplicateModal.editId, duplicateModal.data);
+    else await addJob(duplicateModal.data);
     setModalOpen(false);
     setDuplicateModal({ isOpen: false, data: null });
   };
