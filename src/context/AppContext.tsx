@@ -1574,7 +1574,7 @@ return true;
       const matchesMaterial = (bucketName: string) => {
         const lower = bucketName.toLowerCase();
         if (lower === canonicalLower) return true;
-        if (canonicalLower === 'dust' && /dust|quarry dust|blue metal/.test(lower)) return true;
+        if (canonicalLower === 'dust' && !/cool/.test(lower) && /dust|quarry dust|blue metal/.test(lower)) return true;
         if (canonicalLower.includes('cool dust') && /cool ?dust|fine p sand/.test(lower)) return true;
         return false;
       };
