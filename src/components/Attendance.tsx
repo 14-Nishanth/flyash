@@ -100,22 +100,19 @@ export const Attendance: React.FC = () => {
       is_active: true,
     };
 
-    {
-      const dup = checkDuplicate('employee', payload, editingEmp?.id);
-      if (dup.isDuplicate) {
-        setDuplicateModal({
-          isOpen: true,
-          data: payload,
-          details: dup.details,
-          isEdit: !!editingEmp,
-          editId: editingEmp?.id,
-        });
-        return;
-      }
-      await addEmployee(payload);
-    } else {
-      await updateEmployee(editingEmp.id, payload);
+    const dup = checkDuplicate('employee', payload, editingEmp?.id);
+    if (dup.isDuplicate) {
+      setDuplicateModal({
+        isOpen: true,
+        data: payload,
+        details: dup.details,
+        isEdit: !!editingEmp,
+        editId: editingEmp?.id,
+      });
+      return;
     }
+    if (editingEmp) await updateEmployee(editingEmp.id, payload);
+    else await addEmployee(payload);
     setAddEmpModal(false);
   };
 
