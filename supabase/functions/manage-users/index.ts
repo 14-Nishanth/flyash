@@ -6,9 +6,13 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-type Role = "admin" | "owner" | "operator";
-const validRole = (value: unknown): value is Role =>
-  value === "admin" || value === "owner" || value === "operator";
+type Role = "admin" | "manager" | "staff";
+const normalizeRole = (value: unknown): Role | null => {
+  if (value === "admin" || value === "owner") return "admin";
+  if (value === "manager") return "manager";
+  if (value === "staff" || value === "operator") return "staff";
+  return null;
+};
 
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -65,7 +69,7 @@ Deno.serve(async (request: Request) => {
     id: user.id,
     username: user.email || "",
     name: typeof user.user_metadata?.name === "string" ? user.user_metadata.name : user.email || "Staff",
-    role: validRole(user.app_metadata?.role) ? user.app_metadata.role : "operator",
+    role: normalizeRole(user.app_metadata?.role) || "staff",
     phone: typeof user.user_metadata?.phone === "string" ? user.user_metadata.phone : "",
     created_at: user.created_at || new Date().toISOString(),
   });
@@ -88,14 +92,15 @@ Deno.serve(async (request: Request) => {
       if (!email.includes("@")) return json({ error: "Enter a valid company email address." }, 400);
       if (password.length < 8) return json({ error: "New user passwords must be at least 8 characters." }, 400);
       if (!name) return json({ error: "Name is required." }, 400);
-      if (!validRole(role)) return json({ error: "Invalid user role." }, 400);
+      const normalizedRole = normalizeRole(role);
+      if (!normalizedRole) return json({ error: "Invalid user role." }, 400);
 
       const { data, error } = await admin.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
         user_metadata: { name, phone },
-        app_metadata: { role, flyash_access: true },
+        app_metadata: { role: normalizedRole, flyash_access: true },
       });
       if (error) return json({ error: error.message }, 400);
       return json({ user: toSafeUser(data.user) }, 201);
@@ -123,11 +128,11 @@ Deno.serve(async (request: Request) => {
       if (body.phone !== undefined) userMetadata.phone = String(body.phone || "").trim();
       updates.user_metadata = userMetadata;
 
-      const newRole = body.role === undefined ? target.app_metadata?.role : body.role;
-      if (!validRole(newRole)) return json({ error: "Invalid user role." }, 400);
-      if (target.app_metadata?.role === "admin" && newRole !== "admin") {
+      const newRole = normalizeRole(body.role === undefined ? target.app_metadata?.role : body.role);
+      if (!newRole) return json({ error: "Invalid user role." }, 400);
+      if ((target.app_metadata?.role === "admin" || target.app_metadata?.role === "owner") && newRole !== "admin") {
         const allUsers = await listAllUsers();
-        const adminCount = allUsers.filter((u) => u.app_metadata?.role === "admin" && (u.app_metadata?.flyash_access === true || u.app_metadata?.flyash_access === "true")).length;
+        const adminCount = allUsers.filter((u) => (u.app_metadata?.role === "admin" || u.app_metadata?.role === "owner") && (u.app_metadata?.flyash_access === true || u.app_metadata?.flyash_access === "true")).length;
         if (adminCount <= 1) return json({ error: "The last administrator cannot be demoted." }, 409);
       }
       updates.app_metadata = { ...(target.app_metadata || {}), role: newRole, flyash_access: true };
@@ -142,9 +147,9 @@ Deno.serve(async (request: Request) => {
       if (userId === caller.id) return json({ error: "You cannot delete the account currently signed in." }, 409);
       const { data: targetResult, error: targetError } = await admin.auth.admin.getUserById(userId);
       if (targetError || !targetResult.user) return json({ error: "User not found." }, 404);
-      if (targetResult.user.app_metadata?.role === "admin") {
+      if (targetResult.user.app_metadata?.role === "admin" || targetResult.user.app_metadata?.role === "owner") {
         const allUsers = await listAllUsers();
-        const adminCount = allUsers.filter((u) => u.app_metadata?.role === "admin" && (u.app_metadata?.flyash_access === true || u.app_metadata?.flyash_access === "true")).length;
+        const adminCount = allUsers.filter((u) => (u.app_metadata?.role === "admin" || u.app_metadata?.role === "owner") && (u.app_metadata?.flyash_access === true || u.app_metadata?.flyash_access === "true")).length;
         if (adminCount <= 1) return json({ error: "The last administrator cannot be deleted." }, 409);
       }
       const { error } = await admin.auth.admin.deleteUser(userId);
