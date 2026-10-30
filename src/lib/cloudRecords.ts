@@ -144,7 +144,10 @@ export function hasCloudAccess(user: { app_metadata?: Record<string, unknown> } 
     role === 'owner';
 }
 
-export function getCloudRole(user: { app_metadata?: Record<string, unknown> } | null | undefined): 'admin' | 'owner' | 'operator' {
-  const role = user?.app_metadata?.role;
-  return role === 'admin' || role === 'owner' || role === 'operator' ? role : 'operator';
+export function getCloudRole(user: { app_metadata?: Record<string, unknown> } | null | undefined): 'admin' | 'manager' | 'staff' {
+  const role = String(user?.app_metadata?.role || '').toLowerCase();
+  // Keep existing accounts working while using the new company roles.
+  if (role === 'admin' || role === 'owner') return 'admin';
+  if (role === 'manager') return 'manager';
+  return 'staff';
 }
