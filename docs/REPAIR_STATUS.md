@@ -55,7 +55,7 @@ Work on `fix/full-stack-release-20261110`:
 
 ### Live database verification
 
-- Applied migrations `20261110054231`, `20261110054327`, and `202611100544xx` (see Supabase migration list for exact generated versions).
+- Applied migrations `20261110054231`, `20261110054327`, and `20261110054517`.
 - Queried `pg_policies` and confirmed the SELECT/INSERT/UPDATE/DELETE role matrix.
 - Queried `information_schema.role_table_grants`: authenticated has only SELECT, INSERT, UPDATE and DELETE on `app_records`; anon has no table grants.
 - Ran rollback-only SQL policy probes using test JWT claims for Staff, Manager and Admin. The probes verified Staff insert allowed/settings insert denied/update denied, Manager update allowed/delete denied, and Admin delete allowed. Probe transactions were rolled back; no business records were changed.
