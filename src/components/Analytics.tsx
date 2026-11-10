@@ -114,9 +114,11 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
   const filteredExpenses = expenses.filter((e) => e.date >= startDate && e.date <= endDate);
 
   // Financial Metrics
-  const grossTurnover = filteredOutwards.reduce((sum, o) => sum + o.amount, 0);
-  const rawMaterialPurchases = filteredInwards.reduce((sum, i) => sum + i.amount, 0);
-  const totalLaborWages = filteredJobs.reduce((sum, j) => sum + j.total_amount, 0);
+  // Cloud JSON may contain numeric strings from legacy rows; normalize before addition
+  // so financial totals cannot accidentally concatenate strings.
+  const grossTurnover = filteredOutwards.reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
+  const rawMaterialPurchases = filteredInwards.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+  const totalLaborWages = filteredJobs.reduce((sum, j) => sum + (Number(j.total_amount) || 0), 0);
   const operationalExpenses = getOperationalExpenseTotal(filteredExpenses, filteredInwards);
 
   const totalCOGSAndOps = rawMaterialPurchases + totalLaborWages + operationalExpenses;
@@ -125,7 +127,7 @@ export const Analytics: React.FC<{ focusProfitMargin?: boolean }> = ({ focusProf
 
   // Physical Production & Dispatch Metrics
   const totalPiecesProduced = filteredJobs.filter((j) => j.job_type === 'Only Production' || j.job_type === 'Production').reduce((sum, j) => sum + (Number(j.quantity) || 0), 0);
-  const totalDispatchesCount = filteredOutwards.reduce((sum, o) => sum + o.quantity_mt, 0);
+  const totalDispatchesCount = filteredOutwards.reduce((sum, o) => sum + (Number(o.quantity_mt) || 0), 0);
 
   // Overall Outstanding Receivables & Payables
   let totalReceivables = 0;
