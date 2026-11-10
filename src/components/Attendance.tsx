@@ -14,6 +14,7 @@ export const Attendance: React.FC = () => {
     updateEmployee,
     deleteEmployee,
     canEdit,
+    canCreate,
     canDelete,
     checkDuplicate,
   } = useApp();
@@ -84,8 +85,8 @@ export const Attendance: React.FC = () => {
   };
 
   const handleSaveAttendance = async () => {
-    if (!canEdit) {
-      alert('Access denied: only Admin or Manager can save attendance changes.');
+    if (!canCreate) {
+      alert('Access denied: this account cannot create attendance records.');
       return;
     }
     const records = employees.map((emp) => ({
@@ -301,12 +302,12 @@ export const Attendance: React.FC = () => {
               Clear Day's Logs
             </button>
           )}
-          <button
+          {canCreate && <button
             onClick={handleSaveAttendance}
             className="ml-auto px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md shadow-teal-600/20"
           >
             Save Attendance
-          </button>
+          </button>}
         </div>
       </div>
 
