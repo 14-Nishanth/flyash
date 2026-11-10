@@ -109,7 +109,7 @@ interface AppContextType {
   getProductStock: () => { [prod: string]: { produced: number; dispatched: number; stock: number } };
   calculateGroupWageDistribution: (groupId: string, totalWageAmount: number, overrideWorkerIds?: string[]) => { workerId: string; wage: number }[];
   // Duplicate check
-  checkDuplicate: (type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate', data: any, excludeId?: string) => { isDuplicate: boolean; details?: string };
+  checkDuplicate: (type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'attendance' | 'group' | 'product_rate', data: any, excludeId?: string) => { isDuplicate: boolean; details?: string };
   // Multi-Device Cloud Synchronization
   syncWithCloud: () => Promise<boolean>;
   isSyncing: boolean;
@@ -823,7 +823,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Duplicate Check Helper
   const checkDuplicate = (
-    type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate',
+    type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'attendance' | 'group' | 'product_rate',
     data: any,
     excludeId?: string
   ): { isDuplicate: boolean; details?: string } => {
@@ -891,18 +891,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (type === 'job') {
-      const match = jobs.find(
-        (j) =>
-          j.id !== excludeId &&
-          j.date === data.date &&
+      const isGangWork = data.job_type === 'Gang Work';
+      const match = jobs.find((j) => {
+        if (j.id === excludeId || j.date !== data.date) return false;
+        if (isGangWork) {
+          return j.job_type === 'Gang Work' &&
+            String(j.group_name || '').trim().toLowerCase() === String(data.group_name || '').trim().toLowerCase() &&
+            String(j.product_name || '').trim().toLowerCase() === String(data.product_name || '').trim().toLowerCase() &&
+            Number(j.total_amount) === Number(data.total_amount);
+        }
+        return j.job_type !== 'Gang Work' &&
           j.product_name === data.product_name &&
           Number(j.tray_count) === Number(data.tray_count) &&
-          Number(j.quantity) === Number(data.quantity)
-      );
+          Number(j.quantity) === Number(data.quantity);
+      });
       if (match) {
         return {
           isDuplicate: true,
-          details: `Production job for ${match.product_name} (${match.quantity} pcs) on ${match.date} already recorded.`,
+          details: isGangWork
+            ? `Gang work for ${match.group_name || 'this gang'} — ${match.product_name} (₹${match.total_amount}) on ${match.date} already recorded.`
+            : `Production job for ${match.product_name} (${match.quantity} pcs) on ${match.date} already recorded.`,
+        };
+      }
+    }
+
+    if (type === 'attendance') {
+      const employeeIds = Array.isArray(data.employee_ids)
+        ? data.employee_ids.map((id: unknown) => String(id))
+        : data.employee_id ? [String(data.employee_id)] : [];
+      const match = attendance.find((record) =>
+        record.id !== excludeId &&
+        record.date === data.date &&
+        (employeeIds.length === 0 || employeeIds.includes(String(record.employee_id)))
+      );
+      if (match) {
+        const employee = employees.find((item) => item.id === match.employee_id);
+        return {
+          isDuplicate: true,
+          details: `Attendance for ${employee?.name || match.employee_name || 'a worker'} on ${match.date} is already saved as ${match.status}. Saving again will replace that date's attendance records.`,
         };
       }
     }
