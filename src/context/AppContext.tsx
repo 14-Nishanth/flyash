@@ -36,6 +36,7 @@ interface AppContextType {
   currentUser: UserSession | null;
   canDelete: boolean;
   canEdit: boolean;
+  canCreate: boolean;
   canManageUsers: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
@@ -109,7 +110,7 @@ interface AppContextType {
   getProductStock: () => { [prod: string]: { produced: number; dispatched: number; stock: number } };
   calculateGroupWageDistribution: (groupId: string, totalWageAmount: number, overrideWorkerIds?: string[]) => { workerId: string; wage: number }[];
   // Duplicate check
-  checkDuplicate: (type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate', data: any, excludeId?: string) => { isDuplicate: boolean; details?: string };
+  checkDuplicate: (type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'attendance' | 'group' | 'product_rate', data: any, excludeId?: string) => { isDuplicate: boolean; details?: string };
   // Multi-Device Cloud Synchronization
   syncWithCloud: () => Promise<boolean>;
   isSyncing: boolean;
@@ -529,7 +530,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
   const canDelete = isAdmin;
   const canEdit = isAdmin || currentUser?.role === 'manager';
+  const canCreate = !!currentUser && ['admin', 'owner', 'manager', 'staff'].includes(currentUser.role);
   const canManageUsers = isAdmin;
+  const assertCanCreate = (label = 'records') => {
+    if (!canCreate) throw new Error(`Access denied: this account cannot create ${label}.`);
+  };
   const assertCanEdit = (label = 'business records') => {
     if (!canEdit) throw new Error(`Access denied: only Admin or Manager can edit ${label}.`);
   };
@@ -823,7 +828,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Duplicate Check Helper
   const checkDuplicate = (
-    type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'group' | 'product_rate',
+    type: 'party' | 'inward' | 'outward' | 'payment' | 'adjustment' | 'expense' | 'job' | 'employee' | 'attendance' | 'group' | 'product_rate',
     data: any,
     excludeId?: string
   ): { isDuplicate: boolean; details?: string } => {
@@ -891,18 +896,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (type === 'job') {
-      const match = jobs.find(
-        (j) =>
-          j.id !== excludeId &&
-          j.date === data.date &&
+      const isGangWork = data.job_type === 'Gang Work';
+      const match = jobs.find((j) => {
+        if (j.id === excludeId || j.date !== data.date) return false;
+        if (isGangWork) {
+          return j.job_type === 'Gang Work' &&
+            String(j.group_name || '').trim().toLowerCase() === String(data.group_name || '').trim().toLowerCase() &&
+            String(j.product_name || '').trim().toLowerCase() === String(data.product_name || '').trim().toLowerCase() &&
+            Number(j.total_amount) === Number(data.total_amount);
+        }
+        return j.job_type !== 'Gang Work' &&
           j.product_name === data.product_name &&
           Number(j.tray_count) === Number(data.tray_count) &&
-          Number(j.quantity) === Number(data.quantity)
-      );
+          Number(j.quantity) === Number(data.quantity);
+      });
       if (match) {
         return {
           isDuplicate: true,
-          details: `Production job for ${match.product_name} (${match.quantity} pcs) on ${match.date} already recorded.`,
+          details: isGangWork
+            ? `Gang work for ${match.group_name || 'this gang'} — ${match.product_name} (₹${match.total_amount}) on ${match.date} already recorded.`
+            : `Production job for ${match.product_name} (${match.quantity} pcs) on ${match.date} already recorded.`,
+        };
+      }
+    }
+
+    if (type === 'attendance') {
+      const employeeIds = Array.isArray(data.employee_ids)
+        ? data.employee_ids.map((id: unknown) => String(id))
+        : data.employee_id ? [String(data.employee_id)] : [];
+      const match = attendance.find((record) =>
+        record.id !== excludeId &&
+        record.date === data.date &&
+        (employeeIds.length === 0 || employeeIds.includes(String(record.employee_id)))
+      );
+      if (match) {
+        const employee = employees.find((item) => item.id === match.employee_id);
+        return {
+          isDuplicate: true,
+          details: `Attendance for ${employee?.name || match.employee_name || 'a worker'} on ${match.date} is already saved as ${match.status}. Saving again will replace that date's attendance records.`,
         };
       }
     }
@@ -1300,7 +1331,11 @@ return true;
 
   // --- ATTENDANCE CRUD ---
   const saveAttendance = async (date: string, records: { employee_id: string; status: any; notes?: string }[]) => {
-    assertCanEdit('attendance');
+    assertCanCreate('attendance');
+    const existingForDate = attendance.filter((record) => record.date === date);
+    if (!canEdit && existingForDate.length > 0) {
+      throw new Error('Staff can create attendance only once per date. Ask a Manager or Admin to correct an existing attendance register.');
+    }
     const newRecords: AttendanceRecord[] = records.map((r) => {
       const emp = employees.find((e) => e.id === r.employee_id);
       return {
@@ -1466,28 +1501,30 @@ return true;
       return true;
     });
     const paidAgainstInwardPurchases = materialPurchaseExpensesWithInward.reduce((sum, expense) => {
-      const explicitPaid = Number(expense.paid_amount);
-      const inferredPaid = expense.due_amount !== undefined
-        ? (Number(expense.amount) || 0) - (Number(expense.due_amount) || 0)
+      const hasExplicitPaid = expense.paid_amount !== undefined && expense.paid_amount !== null;
+      const explicitPaid = hasExplicitPaid ? Number(expense.paid_amount) : Number.NaN;
+      const hasDueAmount = expense.due_amount !== undefined && expense.due_amount !== null;
+      const inferredPaid = hasDueAmount
+        ? Math.max(0, (Number(expense.amount) || 0) - (Number(expense.due_amount) || 0))
         : expense.payment_status === 'paid' ? Number(expense.amount) || 0 : 0;
-      return sum + (Number.isFinite(explicitPaid) ? explicitPaid : inferredPaid);
+      return sum + (Number.isFinite(explicitPaid) ? Math.max(0, explicitPaid) : inferredPaid);
     }, 0);
 
     const partyPaidExpenses = expenses
       .filter((e) => e.party_id === partyId &&
         (e.expense_type === 'supplier_payment' ||
           e.category === 'Supplier Due Payment' ||
-          e.category.includes('Supplier Due Payment') ||
-          e.category.includes('Outstanding Settlement')))
+          String(e.category || '').includes('Supplier Due Payment') ||
+          String(e.category || '').includes('Outstanding Settlement')))
       .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
     const unpaidExpenses = expenses
       .filter((e) => e.party_id === partyId &&
         e.expense_type !== 'supplier_payment' &&
-        !e.category.includes('Supplier Due Payment') &&
-        !e.category.includes('Outstanding Settlement') &&
+        !String(e.category || '').includes('Supplier Due Payment') &&
+        !String(e.category || '').includes('Outstanding Settlement') &&
         !materialPurchaseExpensesWithInward.includes(e) &&
-        (e.payment_status === 'unpaid' || e.payment_status === 'partial' || e.is_paid === false || e.payment_mode === 'credit'))
+        (e.payment_status === 'unpaid' || e.payment_status === 'partial' || e.is_paid === false || (e.payment_mode === 'credit' && e.payment_status !== 'paid')))
       .reduce((sum, e) => sum + (Number(e.due_amount ?? e.amount) || 0), 0);
 
     // Positive = customer receivable; negative = supplier payable.
@@ -1505,6 +1542,9 @@ return true;
     const canonicalMaterialName = (rawName: string) => {
       const name = String(rawName || '').trim().replace(/\\s+/g, ' ');
       const key = name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      if (key === 'ash' || key.includes('fly ash') || key.includes('flyash')) {
+        return 'Fly Ash';
+      }
       if (key.includes('cool dust') || key.includes('cooldust') || key.includes('fine p sand dust')) {
         return 'Cool Dust (Fine P-Sand Dust)';
       }
@@ -1707,6 +1747,7 @@ return true;
         currentUser,
         canDelete,
         canEdit,
+        canCreate,
         canManageUsers,
         login,
         logout,

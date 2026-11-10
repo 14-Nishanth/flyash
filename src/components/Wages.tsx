@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Banknote, Printer, Plus, ClipboardList } from 'lucide-react';
+import { Banknote, Printer, Plus, ClipboardList, Edit2, Trash2, X } from 'lucide-react';
+import { DuplicateWarningModal } from './DuplicateWarningModal';
 
 const today = () => {
   const d = new Date();
@@ -10,7 +11,7 @@ const today = () => {
 const money = (value: number) => '₹' + (Number(value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const Wages: React.FC = () => {
-  const { employees, workerGroups, jobs, addJob, checkDuplicate } = useApp();
+  const { employees, workerGroups, jobs, addJob, updateJob, deleteJob, checkDuplicate, canEdit, canCreate, canDelete } = useApp();
   const [workDate, setWorkDate] = useState(today());
   const [groupId, setGroupId] = useState('');
   const [workDescription, setWorkDescription] = useState('');
@@ -19,9 +20,12 @@ export const Wages: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [dateFrom, setDateFrom] = useState(today());
   const [dateTo, setDateTo] = useState(today());
+  const [editingJob, setEditingJob] = useState<any>(null);
+  const [duplicateModal, setDuplicateModal] = useState<{ isOpen: boolean; details?: string }>({ isOpen: false });
+  const [pendingSave, setPendingSave] = useState<any>(null);
 
   const activeGroups = workerGroups.filter((g) => (g.member_ids || []).some((id) => employees.some((e) => e.id === id && e.is_active)));
-  const selectedGroup = activeGroups.find((g) => g.id === groupId);
+  const selectedGroup = workerGroups.find((g) => g.id === groupId);
   const members = useMemo(() => {
     if (!selectedGroup) return [];
     return (selectedGroup.member_ids || []).map((id) => employees.find((e) => e.id === id)).filter((e) => e && e.is_active);
@@ -36,45 +40,103 @@ export const Wages: React.FC = () => {
   const totalPayroll = gangWork.reduce((sum, j) => sum + (Number(j.total_amount) || 0), 0);
   const allEntries = filteredJobs.filter((j) => j.job_type === 'Gang Work' || j.job_type === 'Production' || j.job_type === 'Only Production' || j.job_type === 'Only Loading' || j.job_type === 'Only Unloading' || j.job_type === 'Loading / Unloading');
 
+  const resetForm = () => {
+    setEditingJob(null);
+    setWorkDate(today());
+    setGroupId('');
+    setWorkDescription('');
+    setTotalSalary('');
+    setNotes('');
+  };
+
+  const persistGangEntry = async (entry: any) => {
+    if (editingJob) {
+      if (!canEdit) throw new Error('Only Admin or Manager can edit saved salary entries.');
+      await updateJob(editingJob.id, entry);
+    } else {
+      if (!canCreate) throw new Error('This account cannot create salary entries.');
+      await addJob(entry);
+    }
+    resetForm();
+    setPendingSave(null);
+    setDuplicateModal({ isOpen: false });
+    alert(editingJob ? 'Gang salary entry updated.' : 'Gang work and equal salary split saved.');
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (editingJob ? !canEdit : !canCreate) { alert(editingJob ? 'Access denied: only Admin or Manager can edit salary records.' : 'Access denied: this account cannot create salary records.'); return; }
     if (!selectedGroup) { alert('Please select a worker gang.'); return; }
-    if (!workDescription.trim()) { alert('Enter the work completed today.'); return; }
+    if (!workDescription.trim()) { alert('Enter the work completed.'); return; }
     if (amount <= 0) { alert('Enter a salary amount greater than zero.'); return; }
     if (members.length === 0) { alert('This gang has no active workers. Add workers to the gang first.'); return; }
+    const gangEntry = {
+      date: workDate,
+      group_name: selectedGroup.name,
+      job_type: 'Gang Work',
+      product_name: workDescription.trim(),
+      tray_count: 0,
+      pieces_per_tray: 0,
+      wastage_per_tray: 0,
+      total_wastage: 0,
+      gross_quantity: 0,
+      quantity: 0,
+      rate_per_unit: 0,
+      gross_amount: amount,
+      wastage_amount: 0,
+      total_amount: amount,
+      worker_count: members.length,
+      wage_per_worker: Math.round((amount / members.length) * 100) / 100,
+      worker_ids: members.map((m) => m!.id),
+      notes: [notes.trim(), 'Workers: ' + members.map((m) => m!.name).join(', ')].filter(Boolean).join(' | '),
+    };
+    const duplicate = checkDuplicate('job', gangEntry, editingJob?.id);
+    if (duplicate.isDuplicate) {
+      setPendingSave(gangEntry);
+      setDuplicateModal({ isOpen: true, details: duplicate.details });
+      return;
+    }
     setSaving(true);
     try {
-      const gangEntry = {
-        date: workDate,
-        group_name: selectedGroup.name,
-        job_type: 'Gang Work',
-        product_name: workDescription.trim(),
-        tray_count: 0,
-        pieces_per_tray: 0,
-        wastage_per_tray: 0,
-        total_wastage: 0,
-        gross_quantity: 0,
-        quantity: 0,
-        rate_per_unit: 0,
-        gross_amount: amount,
-        wastage_amount: 0,
-        total_amount: amount,
-        worker_count: members.length,
-        wage_per_worker: Math.round((amount / members.length) * 100) / 100,
-        worker_ids: members.map((m) => m!.id),
-        notes: [notes.trim(), 'Workers: ' + members.map((m) => m!.name).join(', ')].filter(Boolean).join(' | '),
-      };
-      const duplicate = checkDuplicate('job', gangEntry);
-      if (duplicate.isDuplicate && !window.confirm(`${duplicate.details}\n\nSave this gang-work entry anyway?`)) return;
-      await addJob(gangEntry);
-      setWorkDescription('');
-      setTotalSalary('');
-      setNotes('');
-      alert('Gang work and equal salary split saved.');
+      await persistGangEntry(gangEntry);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Could not save this gang salary entry.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const confirmDuplicateSave = async () => {
+    if (!pendingSave) return;
+    setSaving(true);
+    try {
+      await persistGangEntry(pendingSave);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not save this gang salary entry.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const beginEdit = (job: any) => {
+    if (!canEdit) { alert('Access denied: only Admin or Manager can edit salary records.'); return; }
+    setEditingJob(job);
+    setWorkDate(job.date);
+    setGroupId(workerGroups.find((g) => g.name === job.group_name)?.id || '');
+    setWorkDescription(job.product_name || '');
+    setTotalSalary(String(job.total_amount || 0));
+    setNotes(String(job.notes || '').split(' | Workers:')[0]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDelete = async (job: any) => {
+    if (!canDelete) { alert('Access denied: only Admin or Owner can delete salary records.'); return; }
+    if (!window.confirm(`Delete the gang salary entry for ${job.group_name || 'this gang'} on ${job.date} (${money(job.total_amount || 0)})? This will recalculate the salary totals.`)) return;
+    try {
+      await deleteJob(job.id);
+      if (editingJob?.id === job.id) resetForm();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not delete the salary entry.');
     }
   };
 
@@ -90,8 +152,8 @@ export const Wages: React.FC = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSave} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4 shadow-sm">
-        <div className="flex items-center gap-2"><Plus className="w-5 h-5 text-emerald-600" /><h2 className="font-bold text-slate-900 dark:text-white">Add Today's Gang Work</h2></div>
+      {canCreate && <form onSubmit={handleSave} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4 shadow-sm">
+        <div className="flex items-center gap-2"><Plus className="w-5 h-5 text-emerald-600" /><h2 className="font-bold text-slate-900 dark:text-white">{editingJob ? 'Edit Gang Work Entry' : "Add Today's Gang Work"}</h2></div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Work date
             <input required type="date" value={workDate} onChange={(e) => setWorkDate(e.target.value)} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white" />
@@ -120,8 +182,11 @@ export const Wages: React.FC = () => {
         <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Notes (optional)
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Any details about today's work..." className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-sm text-slate-900 dark:text-white" />
         </label>
-        <button type="submit" disabled={saving} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm">{saving ? 'Saving...' : 'Save Gang Salary Entry'}</button>
-      </form>
+        <div className="flex flex-wrap gap-2">
+          <button type="submit" disabled={saving} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm">{saving ? 'Saving...' : editingJob ? 'Update Gang Salary Entry' : 'Save Gang Salary Entry'}</button>
+          {editingJob && <button type="button" onClick={resetForm} className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-sm flex items-center gap-1"><X className="w-4 h-4" /> Cancel edit</button>}
+        </div>
+      </form>}
 
       <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -138,15 +203,24 @@ export const Wages: React.FC = () => {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-slate-100 dark:bg-slate-800 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Gang</th><th className="px-4 py-3">Work completed</th><th className="px-4 py-3 text-right">Workers</th><th className="px-4 py-3 text-right">Total salary</th><th className="px-4 py-3 text-right">Per worker</th></tr></thead>
+            <thead className="bg-slate-100 dark:bg-slate-800 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Gang</th><th className="px-4 py-3">Work completed</th><th className="px-4 py-3 text-right">Workers</th><th className="px-4 py-3 text-right">Total salary</th><th className="px-4 py-3 text-right">Per worker</th><th className="px-4 py-3 text-right">Actions</th></tr></thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {gangWork.map((j) => <tr key={j.id} className="text-slate-700 dark:text-slate-200"><td className="px-4 py-3 whitespace-nowrap">{j.date}</td><td className="px-4 py-3">{j.group_name || 'Gang'}</td><td className="px-4 py-3 min-w-48">{j.product_name}{j.notes && <div className="text-xs text-slate-400 mt-1">{j.notes}</div>}</td><td className="px-4 py-3 text-right">{j.worker_count || 0}</td><td className="px-4 py-3 text-right font-semibold">{money(j.total_amount || 0)}</td><td className="px-4 py-3 text-right font-bold text-emerald-600">{money(j.wage_per_worker || 0)}</td></tr>)}
-              {gangWork.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500"><ClipboardList className="w-6 h-6 mx-auto mb-2 opacity-50" />No gang salary entries in this date range.</td></tr>}
+              {gangWork.map((j) => <tr key={j.id} className="text-slate-700 dark:text-slate-200"><td className="px-4 py-3 whitespace-nowrap">{j.date}</td><td className="px-4 py-3">{j.group_name || 'Gang'}</td><td className="px-4 py-3 min-w-48">{j.product_name}{j.notes && <div className="text-xs text-slate-400 mt-1">{j.notes}</div>}</td><td className="px-4 py-3 text-right">{j.worker_count || 0}</td><td className="px-4 py-3 text-right font-semibold">{money(j.total_amount || 0)}</td><td className="px-4 py-3 text-right font-bold text-emerald-600">{money(j.wage_per_worker || 0)}</td><td className="px-4 py-3 text-right whitespace-nowrap"><div className="flex justify-end gap-1">{canEdit && <button type="button" onClick={() => beginEdit(j)} title="Edit salary entry" className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"><Edit2 className="w-4 h-4" /></button>}{canDelete && <button type="button" onClick={() => void handleDelete(j)} title="Delete salary entry" className="p-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"><Trash2 className="w-4 h-4" /></button>}{!canEdit && !canDelete && <span className="text-xs text-slate-400">View only</span>}</div></td></tr>)}
+              {gangWork.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500"><ClipboardList className="w-6 h-6 mx-auto mb-2 opacity-50" />No gang salary entries in this date range.</td></tr>}
             </tbody>
-            <tfoot className="bg-slate-50 dark:bg-slate-800 font-bold"><tr><td colSpan={4} className="px-4 py-3 text-right">Total</td><td className="px-4 py-3 text-right">{money(totalPayroll)}</td><td /></tr></tfoot>
+            <tfoot className="bg-slate-50 dark:bg-slate-800 font-bold"><tr><td colSpan={4} className="px-4 py-3 text-right">Total</td><td className="px-4 py-3 text-right">{money(totalPayroll)}</td><td /><td /></tr></tfoot>
           </table>
         </div>
       </section>
+
+      <DuplicateWarningModal
+        isOpen={duplicateModal.isOpen}
+        title="Possible Duplicate Gang Work"
+        message="A matching gang-work entry already exists for this date. Review the existing record before continuing."
+        existingDetails={duplicateModal.details}
+        onConfirm={() => void confirmDuplicateSave()}
+        onCancel={() => { setDuplicateModal({ isOpen: false }); setPendingSave(null); }}
+      />
     </div>
   );
 };

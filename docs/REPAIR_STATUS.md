@@ -36,3 +36,36 @@
 5. Export local backups from each device before first sign-in. The migration imports the existing server tables; device-specific localStorage records are merged on the first authenticated sync.
 
 See [CLOUD_SYNC_SETUP.md](CLOUD_SYNC_SETUP.md) for the exact rollout steps.
+
+
+## Follow-up release repair — 2026-11-10
+
+Work on `fix/full-stack-release-20261110`:
+
+- Added edit and delete actions for saved gang salary entries. Admin/Manager can edit; Admin/Owner can delete after a confirmation prompt.
+- Connected the Attendance navigation item to the dedicated Attendance component.
+- Added a same-date attendance duplicate warning with an explicit replace/cancel choice for users who have edit permission.
+- Added attendance to the shared duplicate checker and made gang-work duplicate matching include the gang, description and amount.
+- Enforced the create/read-only staff attendance rule in the app: staff may create a day's register once; a Manager/Admin must correct an existing date.
+- Cloud access now requires both an approved server-controlled role and explicit `app_metadata.flyash_access=true`.
+- Reconciled live `app_records` RLS policies: Admin/Owner full access, Manager create/read/edit, Staff create/read, staff blocked from settings inserts, and only Admin/Owner may delete.
+- Removed client `TRUNCATE`, `REFERENCES` and `TRIGGER` privileges because table-level TRUNCATE bypasses RLS.
+- Required every client insert/update to set `updated_by=auth.uid()`.
+- Hardened legacy supplier payment reconciliation and normalized numeric strings in Analytics totals.
+
+### Live database verification
+
+- Applied migrations `20261110054231`, `20261110054327`, and `20261110054517`.
+- Queried `pg_policies` and confirmed the SELECT/INSERT/UPDATE/DELETE role matrix.
+- Queried `information_schema.role_table_grants`: authenticated has only SELECT, INSERT, UPDATE and DELETE on `app_records`; anon has no table grants.
+- Ran rollback-only SQL policy probes using test JWT claims for Staff, Manager and Admin. The probes verified Staff insert allowed/settings insert denied/update denied, Manager update allowed/delete denied, and Admin delete allowed. Probe transactions were rolled back; no business records were changed.
+
+### Still required before production release
+
+- The TypeScript/Vite build must pass on the latest PR head.
+- Complete a real authenticated two-device create/edit/delete sync test using two company accounts/devices.
+- Run full transaction-level stock, party-balance, and report regression scenarios against known expected values.
+- After those checks pass, merge to `main`, verify the GitHub Pages deployment and independently inspect the live application.
+
+- Follow-up stock normalization: `Ash`, `Fly Ash`, and `Flyash` are now canonicalized to the same raw-material bucket so recipe consumption deducts from the purchased Fly Ash stock instead of creating a separate negative Ash bucket.
+- Manual arithmetic sanity scenarios passed for dust/cool-dust unit deductions, fly-ash tonne deductions, cement bag deductions, numeric-string report totals, and a party-ledger balance example. These are formula checks, not substitutes for a full production transaction regression suite.
