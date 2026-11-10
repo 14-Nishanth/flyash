@@ -7,6 +7,7 @@ import { Materials } from './components/Materials';
 import { Parties } from './components/Parties';
 import { Production } from './components/Production';
 import { Employees } from './components/Employees';
+import { Attendance } from './components/Attendance';
 import { Wages } from './components/Wages';
 import { Expenses } from './components/Expenses';
 import { Settings } from './components/Settings';
@@ -154,7 +155,8 @@ export const App: React.FC = () => {
             {activeTab === 'materials' && <Materials />}
             {activeTab === 'parties' && <Parties />}
             {activeTab === 'production' && <Production />}
-            {(activeTab === 'employees' || activeTab === 'attendance') && <Employees />}
+            {activeTab === 'employees' && <Employees />}
+            {activeTab === 'attendance' && <Attendance />}
             {activeTab === 'wages' && <Wages />}
             {activeTab === 'expenses' && <Expenses />}
             {activeTab === 'analytics' && <Analytics />}
