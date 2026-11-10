@@ -1501,9 +1501,9 @@ return true;
       return true;
     });
     const paidAgainstInwardPurchases = materialPurchaseExpensesWithInward.reduce((sum, expense) => {
-      const hasExplicitPaid = expense.paid_amount !== undefined && expense.paid_amount !== null && expense.paid_amount !== '';
+      const hasExplicitPaid = expense.paid_amount !== undefined && expense.paid_amount !== null;
       const explicitPaid = hasExplicitPaid ? Number(expense.paid_amount) : Number.NaN;
-      const hasDueAmount = expense.due_amount !== undefined && expense.due_amount !== null && expense.due_amount !== '';
+      const hasDueAmount = expense.due_amount !== undefined && expense.due_amount !== null;
       const inferredPaid = hasDueAmount
         ? Math.max(0, (Number(expense.amount) || 0) - (Number(expense.due_amount) || 0))
         : expense.payment_status === 'paid' ? Number(expense.amount) || 0 : 0;
