@@ -1501,28 +1501,30 @@ return true;
       return true;
     });
     const paidAgainstInwardPurchases = materialPurchaseExpensesWithInward.reduce((sum, expense) => {
-      const explicitPaid = Number(expense.paid_amount);
-      const inferredPaid = expense.due_amount !== undefined
-        ? (Number(expense.amount) || 0) - (Number(expense.due_amount) || 0)
+      const hasExplicitPaid = expense.paid_amount !== undefined && expense.paid_amount !== null && expense.paid_amount !== '';
+      const explicitPaid = hasExplicitPaid ? Number(expense.paid_amount) : Number.NaN;
+      const hasDueAmount = expense.due_amount !== undefined && expense.due_amount !== null && expense.due_amount !== '';
+      const inferredPaid = hasDueAmount
+        ? Math.max(0, (Number(expense.amount) || 0) - (Number(expense.due_amount) || 0))
         : expense.payment_status === 'paid' ? Number(expense.amount) || 0 : 0;
-      return sum + (Number.isFinite(explicitPaid) ? explicitPaid : inferredPaid);
+      return sum + (Number.isFinite(explicitPaid) ? Math.max(0, explicitPaid) : inferredPaid);
     }, 0);
 
     const partyPaidExpenses = expenses
       .filter((e) => e.party_id === partyId &&
         (e.expense_type === 'supplier_payment' ||
           e.category === 'Supplier Due Payment' ||
-          e.category.includes('Supplier Due Payment') ||
-          e.category.includes('Outstanding Settlement')))
+          String(e.category || '').includes('Supplier Due Payment') ||
+          String(e.category || '').includes('Outstanding Settlement')))
       .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
     const unpaidExpenses = expenses
       .filter((e) => e.party_id === partyId &&
         e.expense_type !== 'supplier_payment' &&
-        !e.category.includes('Supplier Due Payment') &&
-        !e.category.includes('Outstanding Settlement') &&
+        !String(e.category || '').includes('Supplier Due Payment') &&
+        !String(e.category || '').includes('Outstanding Settlement') &&
         !materialPurchaseExpensesWithInward.includes(e) &&
-        (e.payment_status === 'unpaid' || e.payment_status === 'partial' || e.is_paid === false || e.payment_mode === 'credit'))
+        (e.payment_status === 'unpaid' || e.payment_status === 'partial' || e.is_paid === false || (e.payment_mode === 'credit' && e.payment_status !== 'paid')))
       .reduce((sum, e) => sum + (Number(e.due_amount ?? e.amount) || 0), 0);
 
     // Positive = customer receivable; negative = supplier payable.
