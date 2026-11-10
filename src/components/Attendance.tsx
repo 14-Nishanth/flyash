@@ -42,6 +42,8 @@ export const Attendance: React.FC = () => {
 
   // Attendance status mapping for the selected date
   const [statusMap, setStatusMap] = useState<{ [empId: string]: string }>({});
+  const [attendanceDuplicateModal, setAttendanceDuplicateModal] = useState<{ isOpen: boolean; details?: string }>({ isOpen: false });
+  const [pendingAttendanceRecords, setPendingAttendanceRecords] = useState<{ employee_id: string; status: any; notes?: string }[] | null>(null);
 
   React.useEffect(() => {
     const map: { [key: string]: string } = {};
@@ -70,13 +72,38 @@ export const Attendance: React.FC = () => {
     setAddEmpModal(true);
   };
 
+  const persistAttendance = async (records: { employee_id: string; status: any; notes?: string }[]) => {
+    try {
+      await saveAttendance(date, records);
+      setAttendanceDuplicateModal({ isOpen: false });
+      setPendingAttendanceRecords(null);
+      alert('Attendance records saved successfully!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not save attendance records.');
+    }
+  };
+
   const handleSaveAttendance = async () => {
+    if (!canEdit) {
+      alert('Access denied: only Admin or Manager can save attendance changes.');
+      return;
+    }
     const records = employees.map((emp) => ({
       employee_id: emp.id,
       status: statusMap[emp.id] || 'present',
     }));
-    await saveAttendance(date, records);
-    alert('Attendance records saved successfully!');
+    const duplicate = checkDuplicate('attendance', { date, employee_ids: records.map((record) => record.employee_id) });
+    if (duplicate.isDuplicate) {
+      setPendingAttendanceRecords(records);
+      setAttendanceDuplicateModal({ isOpen: true, details: duplicate.details });
+      return;
+    }
+    await persistAttendance(records);
+  };
+
+  const confirmAttendanceOverwrite = async () => {
+    if (!pendingAttendanceRecords) return;
+    await persistAttendance(pendingAttendanceRecords);
   };
 
   const handleClearAttendance = async () => {
@@ -373,6 +400,17 @@ export const Attendance: React.FC = () => {
         existingDetails={duplicateModal.details}
         onConfirm={handleConfirmDuplicateEmp}
         onCancel={() => setDuplicateModal({ isOpen: false, data: null })}
+      />
+      <DuplicateWarningModal
+        isOpen={attendanceDuplicateModal.isOpen}
+        title="Attendance Already Exists"
+        message="Attendance has already been saved for one or more workers on this date. Confirm only if you intend to replace the saved attendance for this date."
+        existingDetails={attendanceDuplicateModal.details}
+        onConfirm={() => void confirmAttendanceOverwrite()}
+        onCancel={() => {
+          setAttendanceDuplicateModal({ isOpen: false });
+          setPendingAttendanceRecords(null);
+        }}
       />
     </div>
   );
