@@ -66,3 +66,6 @@ Work on `fix/full-stack-release-20261110`:
 - Complete a real authenticated two-device create/edit/delete sync test using two company accounts/devices.
 - Run full transaction-level stock, party-balance, and report regression scenarios against known expected values.
 - After those checks pass, merge to `main`, verify the GitHub Pages deployment and independently inspect the live application.
+
+- Follow-up stock normalization: `Ash`, `Fly Ash`, and `Flyash` are now canonicalized to the same raw-material bucket so recipe consumption deducts from the purchased Fly Ash stock instead of creating a separate negative Ash bucket.
+- Manual arithmetic sanity scenarios passed for dust/cool-dust unit deductions, fly-ash tonne deductions, cement bag deductions, numeric-string report totals, and a party-ledger balance example. These are formula checks, not substitutes for a full production transaction regression suite.
