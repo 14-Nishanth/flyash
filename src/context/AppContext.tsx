@@ -1542,6 +1542,9 @@ return true;
     const canonicalMaterialName = (rawName: string) => {
       const name = String(rawName || '').trim().replace(/\\s+/g, ' ');
       const key = name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      if (key === 'ash' || key.includes('fly ash') || key.includes('flyash')) {
+        return 'Fly Ash';
+      }
       if (key.includes('cool dust') || key.includes('cooldust') || key.includes('fine p sand dust')) {
         return 'Cool Dust (Fine P-Sand Dust)';
       }
