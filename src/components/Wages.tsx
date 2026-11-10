@@ -11,7 +11,7 @@ const today = () => {
 const money = (value: number) => '₹' + (Number(value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const Wages: React.FC = () => {
-  const { employees, workerGroups, jobs, addJob, updateJob, deleteJob, checkDuplicate, canEdit, canDelete } = useApp();
+  const { employees, workerGroups, jobs, addJob, updateJob, deleteJob, checkDuplicate, canEdit, canCreate, canDelete } = useApp();
   const [workDate, setWorkDate] = useState(today());
   const [groupId, setGroupId] = useState('');
   const [workDescription, setWorkDescription] = useState('');
@@ -50,8 +50,13 @@ export const Wages: React.FC = () => {
   };
 
   const persistGangEntry = async (entry: any) => {
-    if (editingJob) await updateJob(editingJob.id, entry);
-    else await addJob(entry);
+    if (editingJob) {
+      if (!canEdit) throw new Error('Only Admin or Manager can edit saved salary entries.');
+      await updateJob(editingJob.id, entry);
+    } else {
+      if (!canCreate) throw new Error('This account cannot create salary entries.');
+      await addJob(entry);
+    }
     resetForm();
     setPendingSave(null);
     setDuplicateModal({ isOpen: false });
@@ -60,7 +65,7 @@ export const Wages: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canEdit) { alert('Access denied: only Admin or Manager can edit salary records.'); return; }
+    if (editingJob ? !canEdit : !canCreate) { alert(editingJob ? 'Access denied: only Admin or Manager can edit salary records.' : 'Access denied: this account cannot create salary records.'); return; }
     if (!selectedGroup) { alert('Please select a worker gang.'); return; }
     if (!workDescription.trim()) { alert('Enter the work completed.'); return; }
     if (amount <= 0) { alert('Enter a salary amount greater than zero.'); return; }
@@ -147,7 +152,7 @@ export const Wages: React.FC = () => {
         </button>
       </div>
 
-      {canEdit && <form onSubmit={handleSave} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4 shadow-sm">
+      {canCreate && <form onSubmit={handleSave} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4 shadow-sm">
         <div className="flex items-center gap-2"><Plus className="w-5 h-5 text-emerald-600" /><h2 className="font-bold text-slate-900 dark:text-white">{editingJob ? 'Edit Gang Work Entry' : "Add Today's Gang Work"}</h2></div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 space-y-1">Work date
