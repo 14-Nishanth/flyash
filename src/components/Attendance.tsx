@@ -104,6 +104,12 @@ export const Attendance: React.FC = () => {
 
   const confirmAttendanceOverwrite = async () => {
     if (!pendingAttendanceRecords) return;
+    if (!canEdit) {
+      setAttendanceDuplicateModal({ isOpen: false });
+      setPendingAttendanceRecords(null);
+      alert('Staff can create an attendance register only once per date. Ask a Manager or Admin to correct an existing register.');
+      return;
+    }
     await persistAttendance(pendingAttendanceRecords);
   };
 
@@ -405,7 +411,7 @@ export const Attendance: React.FC = () => {
       <DuplicateWarningModal
         isOpen={attendanceDuplicateModal.isOpen}
         title="Attendance Already Exists"
-        message="Attendance has already been saved for one or more workers on this date. Confirm only if you intend to replace the saved attendance for this date."
+        message={canEdit ? "Attendance has already been saved for one or more workers on this date. Confirm only if you intend to replace the saved attendance for this date." : "Attendance already exists for this date. Staff cannot overwrite an existing register; ask a Manager or Admin to correct it."}
         existingDetails={attendanceDuplicateModal.details}
         onConfirm={() => void confirmAttendanceOverwrite()}
         onCancel={() => {
