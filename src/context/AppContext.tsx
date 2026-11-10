@@ -36,6 +36,7 @@ interface AppContextType {
   currentUser: UserSession | null;
   canDelete: boolean;
   canEdit: boolean;
+  canCreate: boolean;
   canManageUsers: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
@@ -529,7 +530,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
   const canDelete = isAdmin;
   const canEdit = isAdmin || currentUser?.role === 'manager';
+  const canCreate = !!currentUser && ['admin', 'owner', 'manager', 'staff'].includes(currentUser.role);
   const canManageUsers = isAdmin;
+  const assertCanCreate = (label = 'records') => {
+    if (!canCreate) throw new Error(`Access denied: this account cannot create ${label}.`);
+  };
   const assertCanEdit = (label = 'business records') => {
     if (!canEdit) throw new Error(`Access denied: only Admin or Manager can edit ${label}.`);
   };
@@ -1326,7 +1331,11 @@ return true;
 
   // --- ATTENDANCE CRUD ---
   const saveAttendance = async (date: string, records: { employee_id: string; status: any; notes?: string }[]) => {
-    assertCanEdit('attendance');
+    assertCanCreate('attendance');
+    const existingForDate = attendance.filter((record) => record.date === date);
+    if (!canEdit && existingForDate.length > 0) {
+      throw new Error('Staff can create attendance only once per date. Ask a Manager or Admin to correct an existing attendance register.');
+    }
     const newRecords: AttendanceRecord[] = records.map((r) => {
       const emp = employees.find((e) => e.id === r.employee_id);
       return {
@@ -1733,6 +1742,7 @@ return true;
         currentUser,
         canDelete,
         canEdit,
+        canCreate,
         canManageUsers,
         login,
         logout,
